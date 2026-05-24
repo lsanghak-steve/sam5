@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>삼국 전략 프로토타입</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">턴제 군주 전략</p>
+          <h1>삼국 전략 프로토타입</h1>
+        </div>
+        <div class="turn-status">
+          <span id="dateLabel">184년 1월</span>
+          <span id="factionLabel">세력 선택 중</span>
+          <span id="fameLabel">명성 -</span>
+          <button id="newGameButton" class="ghost-button" type="button">새 게임</button>
+          <button id="endTurnButton" class="primary-button" type="button">턴 종료</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="map-panel" aria-label="전략 지도">
+          <div class="map-header">
+            <div>
+              <h2>중원 지도</h2>
+              <p>도시를 선택하고 인접 도시를 공격하세요.</p>
+            </div>
+            <div class="map-tools">
+              <button id="resetMapButton" class="ghost-button" type="button">지도 중앙</button>
+              <div id="objectiveLabel" class="objective">목표: 모든 도시 통일</div>
+            </div>
+          </div>
+          <div class="map-canvas" id="mapCanvas">
+            <div id="mapViewport" class="map-viewport">
+              <svg class="route-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <path id="routeLines" d="" />
+              </svg>
+              <div id="cityLayer" class="city-layer"></div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="side-panel">
+          <section class="setup-panel" id="setupPanel">
+            <h2>세력 선택</h2>
+            <div id="factionChoices" class="choice-grid"></div>
+          </section>
+
+          <section class="ruler-panel" id="rulerPanel">
+            <div class="panel-title">
+              <h2>군주</h2>
+              <span id="rulerFactionBadge" class="badge">-</span>
+            </div>
+            <div class="ruler-profile">
+              <div id="rulerPortrait" class="ruler-portrait">
+                <img id="rulerPortraitImage" class="ruler-portrait-image" alt="" />
+                <span class="portrait-hair"></span>
+                <span class="portrait-face"></span>
+                <span class="portrait-brow left"></span>
+                <span class="portrait-brow right"></span>
+                <span class="portrait-eye left"></span>
+                <span class="portrait-eye right"></span>
+                <span class="portrait-beard"></span>
+                <span class="portrait-robe"></span>
+              </div>
+              <div>
+                <strong id="rulerName">군주 선택 전</strong>
+                <span id="rulerSummary">세력을 선택하면 군주의 얼굴이 표시됩니다.</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="city-panel">
+            <div class="panel-title">
+              <h2 id="cityName">도시 정보</h2>
+              <span id="ownerBadge" class="badge">-</span>
+            </div>
+            <div id="cityStats" class="stats-grid"></div>
+            <div class="resource-editor">
+              <h3>자원 수정</h3>
+              <div class="editor-grid">
+                <label>
+                  금
+                  <input id="goldInput" type="number" min="0" step="10" />
+                </label>
+                <label>
+                  군량
+                  <input id="foodInput" type="number" min="0" step="10" />
+                </label>
+                <label>
+                  병력
+                  <input id="troopsInput" type="number" min="0" step="10" />
+                </label>
+              </div>
+              <button id="applyResourceButton" class="primary-button" type="button">적용</button>
+            </div>
+            <div class="reward-panel">
+              <h3>포상</h3>
+              <div class="reward-grid">
+                <label>
+                  장수
+                  <select id="rewardOfficer"></select>
+                </label>
+                <label>
+                  금액
+                  <input id="rewardAmount" type="number" min="10" step="10" value="100" />
+                </label>
+              </div>
+              <button id="rewardButton" class="primary-button" type="button">포상</button>
+            </div>
+            <div class="troop-assign-panel">
+              <h3>병력 배분</h3>
+              <p id="troopAssignInfo">장수에게 담당 병력을 배분합니다.</p>
+              <div class="reward-grid">
+                <label>
+                  장수
+                  <select id="troopOfficer"></select>
+                </label>
+                <label>
+                  병력
+                  <input id="troopAmount" type="number" min="0" step="10" value="0" />
+                </label>
+              </div>
+              <div class="troop-action-grid">
+                <button id="assignTroopsButton" class="primary-button" type="button">배분</button>
+                <button id="autoAssignTroopsButton" class="ghost-button" type="button">자동 배분</button>
+              </div>
+            </div>
+            <div class="officer-move-panel">
+              <h3>장수 이동</h3>
+              <p id="officerMoveInfo">장수를 다른 도시로 이동합니다.</p>
+              <div class="reward-grid">
+                <label>
+                  장수
+                  <select id="moveOfficer"></select>
+                </label>
+                <label>
+                  목적 도시
+                  <select id="moveTargetCity"></select>
+                </label>
+              </div>
+              <button id="moveOfficerButton" class="primary-button" type="button">이동</button>
+            </div>
+            <div class="scout-panel">
+              <h3>인재 탐색</h3>
+              <p id="scoutInfo">재야 장수를 찾습니다.</p>
+              <button id="scoutButton" class="primary-button" type="button">탐색</button>
+            </div>
+            <div class="officer-list">
+              <h3>소속 장수</h3>
+              <div id="officerList"></div>
+            </div>
+          </section>
+
+          <section class="command-panel">
+            <h2>명령</h2>
+            <div id="commandQuota" class="command-quota">세력을 선택하면 명령 가능 횟수가 표시됩니다.</div>
+            <div id="commandButtons" class="command-grid"></div>
+            <div class="attack-box">
+              <label for="attackTarget">공격 대상</label>
+              <select id="attackTarget"></select>
+              <button id="attackButton" class="danger-button" type="button">출진</button>
+            </div>
+            <div id="progressPanel" class="progress-panel" aria-live="polite">
+              <div class="progress-header">
+                <strong id="progressTitle">명령 대기</strong>
+                <span id="progressPercent">0%</span>
+              </div>
+              <div class="progress-track">
+                <div id="progressFill" class="progress-fill"></div>
+              </div>
+              <p id="progressText">명령을 선택하면 진행 상황이 표시됩니다.</p>
+            </div>
+          </section>
+        </aside>
+      </main>
+
+      <section class="log-panel" aria-label="사건 기록">
+        <div class="panel-title">
+          <h2>사건 기록</h2>
+          <div class="save-actions">
+            <select id="saveSlot" aria-label="저장 슬롯"></select>
+            <button id="saveButton" class="ghost-button" type="button">저장</button>
+            <button id="loadButton" class="ghost-button" type="button">로드</button>
+          </div>
+        </div>
+        <p id="saveStatus" class="save-status">저장 데이터 없음</p>
+        <ol id="eventLog"></ol>
+      </section>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
