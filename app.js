@@ -408,6 +408,7 @@ const els = {
   cityName: document.querySelector("#cityName"),
   ownerBadge: document.querySelector("#ownerBadge"),
   cityStats: document.querySelector("#cityStats"),
+  cityNameInput: document.querySelector("#cityNameInput"),
   goldInput: document.querySelector("#goldInput"),
   foodInput: document.querySelector("#foodInput"),
   troopsInput: document.querySelector("#troopsInput"),
@@ -653,7 +654,8 @@ function renderCities() {
     const faction = getFaction(city.ownerFactionId);
     const button = document.createElement("button");
     const isPlayerCity = playerFaction && city.ownerFactionId === playerFaction.id;
-    button.className = `city-node ${city.id === state.selectedCityId ? "selected" : ""} ${isPlayerCity ? "player-city" : "enemy-city"}`;
+    const actionStatus = getCityActionStatus(city, playerFaction);
+    button.className = `city-node ${city.id === state.selectedCityId ? "selected" : ""} ${isPlayerCity ? "player-city" : "enemy-city"} ${actionStatus.className}`;
     button.type = "button";
     button.disabled = isProcessing();
     button.style.left = `calc(${city.x}% - 56px)`;
@@ -662,6 +664,7 @@ function renderCities() {
     button.innerHTML = `
       <span class="city-name">${city.name}</span>
       <span class="city-meta">${faction.name}<br>병력 ${city.troops} / 훈련 ${city.training}</span>
+      ${actionStatus.label ? `<span class="city-action-badge">${actionStatus.label}</span>` : ""}
     `;
     button.addEventListener("click", () => {
       state.selectedCityId = city.id;
@@ -669,6 +672,21 @@ function renderCities() {
     });
     els.cityLayer.append(button);
   });
+}
+
+function getCityActionStatus(city, playerFaction) {
+  if (!playerFaction || city.ownerFactionId !== playerFaction.id) {
+    return { className: "", label: "" };
+  }
+  const usedCount = getCityActionCount(city.id);
+  const limit = getCityCommandLimit(city.id);
+  if (usedCount >= limit) {
+    return { className: "action-complete", label: "완료" };
+  }
+  if (usedCount > 0) {
+    return { className: "action-partial", label: `${usedCount}/${limit}` };
+  }
+  return { className: "action-ready", label: `${limit}회` };
 }
 
 function applyMapOffset() {
@@ -744,21 +762,13 @@ function endMapDrag(event) {
 function renderCityPanel(city, owner) {
   if (!city || !owner) return;
   const faction = getFaction(city.ownerFactionId);
-  els.cityName.textContent = city.name;
+  const disabled = isProcessing() ? "disabled" : "";
+  els.cityName.innerHTML = `<input id="cityTitleInput" class="city-title-input" type="text" maxlength="16" value="${escapeAttribute(city.name)}" ${disabled} />`;
   els.ownerBadge.textContent = owner.name;
   els.ownerBadge.style.borderColor = owner.color;
   els.ownerBadge.style.color = owner.color;
-  els.cityStats.innerHTML = [
-    ["금", faction.gold],
-    ["군량", faction.food],
-    ["인구", city.population],
-    ["병력", city.troops],
-    ["개발", city.development],
-    ["상업", city.commerce],
-    ["치안", city.order],
-    ["훈련", city.training],
-  ]
-    .map(([label, value]) => `<div class="stat"><span>${label}</span><strong>${value}</strong></div>`)
+  els.cityStats.innerHTML = getCityStatFields(city, faction)
+    .map((field) => renderCityStatInput(field, disabled))
     .join("");
   const officers = cityOfficers(city);
   renderResourceEditor(city, faction);
@@ -771,11 +781,36 @@ function renderCityPanel(city, owner) {
     : `<p class="empty">소속 장수가 없습니다.</p>`;
 }
 
+function getCityStatFields(city, faction) {
+  return [
+    { field: "gold", label: "금", value: faction.gold, step: 10 },
+    { field: "food", label: "군량", value: faction.food, step: 10 },
+    { field: "population", label: "인구", value: city.population, step: 1 },
+    { field: "troops", label: "병력", value: city.troops, step: 10 },
+    { field: "development", label: "개발", value: city.development, step: 1, max: 100 },
+    { field: "commerce", label: "상업", value: city.commerce, step: 1, max: 100 },
+    { field: "order", label: "치안", value: city.order, step: 1, max: 100 },
+    { field: "training", label: "훈련", value: city.training, step: 1, max: 100 },
+  ];
+}
+
+function renderCityStatInput({ field, label, value, step, max }, disabled) {
+  const maxAttribute = Number.isFinite(max) ? `max="${max}"` : "";
+  return `
+    <label class="stat stat-edit">
+      <span>${label}</span>
+      <input class="stat-input" data-city-stat-field="${field}" type="number" min="0" ${maxAttribute} step="${step}" value="${value}" ${disabled} />
+    </label>
+  `;
+}
+
 function renderResourceEditor(city, faction) {
   const disabled = isProcessing();
+  if (document.activeElement !== els.cityNameInput) els.cityNameInput.value = city.name;
   if (document.activeElement !== els.goldInput) els.goldInput.value = faction.gold;
   if (document.activeElement !== els.foodInput) els.foodInput.value = faction.food;
   if (document.activeElement !== els.troopsInput) els.troopsInput.value = city.troops;
+  els.cityNameInput.disabled = disabled;
   els.goldInput.disabled = disabled;
   els.foodInput.disabled = disabled;
   els.troopsInput.disabled = disabled;
@@ -879,10 +914,35 @@ function renderScoutPanel(city, officers) {
 }
 
 function renderOfficerCard(officer) {
+  const disabled = isProcessing() ? "disabled" : "";
+  const fields = [
+    ["leadership", "통", officer.leadership],
+    ["war", "무", officer.war],
+    ["intelligence", "지", officer.intelligence],
+    ["politics", "정", officer.politics],
+    ["charm", "매", officer.charm],
+    ["loyalty", "충", officer.loyalty],
+    ["troops", "병", officer.troops ?? 0, ""],
+  ];
+
   return `
-    <article class="officer-card">
-      <strong>${officer.name}</strong>
-      <span>통 ${officer.leadership} / 무 ${officer.war} / 지 ${officer.intelligence} / 정 ${officer.politics} / 매 ${officer.charm} / 충 ${officer.loyalty} / 병 ${officer.troops ?? 0}</span>
+    <article class="officer-card officer-edit-card" data-officer-id="${officer.id}">
+      <div class="officer-card-header">
+        <strong>${officer.name}</strong>
+        <button class="ghost-button officer-apply-button" type="button" data-officer-action="apply" data-officer-id="${officer.id}" ${disabled}>수정</button>
+      </div>
+      <div class="officer-edit-grid">
+        ${fields
+          .map(
+            ([field, label, value, max = 'max="100"']) => `
+              <label>
+                ${label}
+                <input id="officer-${officer.id}-${field}" data-officer-input="${officer.id}:${field}" type="number" min="0" ${max} step="1" value="${value}" ${disabled} />
+              </label>
+            `,
+          )
+          .join("")}
+      </div>
     </article>
   `;
 }
@@ -1454,15 +1514,101 @@ function applyResourceEdit() {
   const city = getCity(state.selectedCityId);
   if (!city) return;
   const faction = getFaction(city.ownerFactionId);
+  const previousName = city.name;
+  const nextName = (els.cityNameInput.value || "").trim().slice(0, 16) || city.name;
   const nextGold = readNonNegativeInteger(els.goldInput.value, faction.gold);
   const nextFood = readNonNegativeInteger(els.foodInput.value, faction.food);
   const nextTroops = readNonNegativeInteger(els.troopsInput.value, city.troops);
 
+  city.name = nextName;
   faction.gold = nextGold;
   faction.food = nextFood;
   city.troops = nextTroops;
   clampOfficerTroopsForCity(city);
-  addLog(`${city.name}의 자원을 수정했습니다. 금 ${nextGold}, 군량 ${nextFood}, 병력 ${nextTroops}`);
+  const nameText = previousName === city.name ? `${city.name}의` : `${previousName}의 이름을 ${city.name}(으)로 변경하고`;
+  addLog(`${nameText} 도시 정보를 수정했습니다. 금 ${nextGold}, 군량 ${nextFood}, 병력 ${nextTroops}`);
+  render();
+}
+
+function applyCityNameInlineEdit(value) {
+  if (isProcessing()) return;
+  const city = getCity(state.selectedCityId);
+  if (!city) return;
+  const previousName = city.name;
+  const nextName = (value || "").trim().slice(0, 16) || previousName;
+  if (previousName === nextName) {
+    render();
+    return;
+  }
+
+  city.name = nextName;
+  addLog(`${previousName}의 이름을 ${city.name}(으)로 변경했습니다.`);
+  render();
+}
+
+function applyCityStatInlineEdit(field, value) {
+  if (isProcessing()) return;
+  const city = getCity(state.selectedCityId);
+  if (!city) return;
+  const faction = getFaction(city.ownerFactionId);
+  const targets = {
+    gold: { object: faction, key: "gold", label: "금", fallback: faction.gold },
+    food: { object: faction, key: "food", label: "군량", fallback: faction.food },
+    population: { object: city, key: "population", label: "인구", fallback: city.population },
+    troops: { object: city, key: "troops", label: "병력", fallback: city.troops },
+    development: { object: city, key: "development", label: "개발", fallback: city.development, max: 100 },
+    commerce: { object: city, key: "commerce", label: "상업", fallback: city.commerce, max: 100 },
+    order: { object: city, key: "order", label: "치안", fallback: city.order, max: 100 },
+    training: { object: city, key: "training", label: "훈련", fallback: city.training, max: 100 },
+  };
+  const target = targets[field];
+  if (!target) return;
+
+  const nextValue = Number.isFinite(target.max)
+    ? readBoundedInteger(value, target.fallback, 0, target.max)
+    : readNonNegativeInteger(value, target.fallback);
+  const previousValue = target.object[target.key];
+  target.object[target.key] = nextValue;
+  if (field === "troops") {
+    clampOfficerTroopsForCity(city);
+  }
+  if (previousValue !== nextValue) {
+    addLog(`${city.name}의 ${target.label}을 ${previousValue}에서 ${nextValue}(으)로 수정했습니다.`);
+  }
+  render();
+}
+
+function applyOfficerEdit(officerId) {
+  if (isProcessing()) return;
+  const city = getCity(state.selectedCityId);
+  const officer = state.officers.find((item) => item.id === officerId);
+  if (!city || !officer || officer.cityId !== city.id) return;
+
+  const nextStats = {
+    leadership: readBoundedInteger(readOfficerInput(officer.id, "leadership"), officer.leadership, 1, 100),
+    war: readBoundedInteger(readOfficerInput(officer.id, "war"), officer.war, 1, 100),
+    intelligence: readBoundedInteger(readOfficerInput(officer.id, "intelligence"), officer.intelligence, 1, 100),
+    politics: readBoundedInteger(readOfficerInput(officer.id, "politics"), officer.politics, 1, 100),
+    charm: readBoundedInteger(readOfficerInput(officer.id, "charm"), officer.charm, 1, 100),
+    loyalty: readBoundedInteger(readOfficerInput(officer.id, "loyalty"), officer.loyalty, 0, 100),
+    troops: readNonNegativeInteger(readOfficerInput(officer.id, "troops"), officer.troops ?? 0),
+  };
+  const otherAssigned = cityOfficers(city)
+    .filter((item) => item.id !== officer.id)
+    .reduce((sum, item) => sum + (item.troops ?? 0), 0);
+  if (otherAssigned + nextStats.troops > city.troops) {
+    const maxAssignable = Math.max(0, city.troops - otherAssigned);
+    addLog(`${city.name}의 남은 병력이 부족합니다. ${officer.name}에게는 최대 ${maxAssignable}까지 배분할 수 있습니다.`);
+    render();
+    const troopInput = getOfficerInput(officer.id, "troops");
+    if (troopInput) troopInput.value = maxAssignable;
+    return;
+  }
+
+  Object.assign(officer, nextStats);
+  addLog(
+    `${officer.name}의 능력치를 수정했습니다. 통 ${officer.leadership}, 무 ${officer.war}, 지 ${officer.intelligence}, 정 ${officer.politics}, 매 ${officer.charm}, 충성 ${officer.loyalty}, 병력 ${officer.troops ?? 0}`,
+  );
   render();
 }
 
@@ -1634,10 +1780,33 @@ function getScoutChance(bestCharm) {
   return clamp(Math.round(35 + bestCharm * 0.55), 45, 88);
 }
 
+function escapeAttribute(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
 function readNonNegativeInteger(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   if (Number.isNaN(parsed)) return fallback;
   return Math.max(0, parsed);
+}
+
+function readBoundedInteger(value, fallback, min, max) {
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isNaN(parsed)) return fallback;
+  return clamp(parsed, min, max);
+}
+
+function getOfficerInput(officerId, field) {
+  return document.querySelector(`#officer-${officerId}-${field}`);
+}
+
+function readOfficerInput(officerId, field) {
+  const input = getOfficerInput(officerId, field);
+  return input ? input.value : "";
 }
 
 function readPositiveInteger(value, fallback) {
@@ -1683,6 +1852,32 @@ els.saveSlot.addEventListener("change", () => {
 els.saveButton.addEventListener("click", saveGame);
 els.loadButton.addEventListener("click", loadGame);
 els.applyResourceButton.addEventListener("click", applyResourceEdit);
+els.cityName.addEventListener("change", (event) => {
+  if (event.target.id !== "cityTitleInput") return;
+  applyCityNameInlineEdit(event.target.value);
+});
+els.cityName.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.target.id !== "cityTitleInput") return;
+  applyCityNameInlineEdit(event.target.value);
+  event.target.blur();
+});
+els.cityStats.addEventListener("change", (event) => {
+  const input = event.target.closest("[data-city-stat-field]");
+  if (!input) return;
+  applyCityStatInlineEdit(input.dataset.cityStatField, input.value);
+});
+els.cityStats.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  const input = event.target.closest("[data-city-stat-field]");
+  if (!input) return;
+  applyCityStatInlineEdit(input.dataset.cityStatField, input.value);
+  input.blur();
+});
+els.officerList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-officer-action='apply']");
+  if (!button) return;
+  applyOfficerEdit(button.dataset.officerId);
+});
 els.assignTroopsButton.addEventListener("click", assignTroopsToOfficer);
 els.autoAssignTroopsButton.addEventListener("click", autoAssignTroops);
 els.moveOfficerButton.addEventListener("click", moveOfficerToCity);

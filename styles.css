@@ -257,6 +257,35 @@ h3 {
   box-shadow: 0 10px 22px rgba(25, 23, 20, 0.14);
 }
 
+.city-node.action-ready {
+  background: linear-gradient(180deg, #fff, #f7fffb);
+}
+
+.city-node.action-partial {
+  border-color: var(--gold);
+  background:
+    linear-gradient(180deg, rgba(184, 134, 11, 0.13), rgba(255, 255, 255, 0.94)),
+    #fff;
+}
+
+.city-node.action-complete {
+  border-color: #5f625c;
+  background:
+    repeating-linear-gradient(135deg, rgba(25, 23, 20, 0.13) 0 6px, rgba(255, 255, 255, 0.75) 6px 12px),
+    #ecebe5;
+  color: #4d4b47;
+  filter: saturate(0.55);
+}
+
+.city-node.action-complete::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 2px solid rgba(95, 98, 92, 0.45);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
 .city-node.selected {
   outline: 4px solid rgba(184, 134, 11, 0.38);
 }
@@ -280,6 +309,29 @@ h3 {
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.35;
+}
+
+.city-action-badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  min-width: 34px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--jade);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+}
+
+.city-node.action-partial .city-action-badge {
+  background: var(--gold);
+}
+
+.city-node.action-complete .city-action-badge {
+  background: #4d4b47;
 }
 
 .side-panel {
@@ -538,6 +590,12 @@ h3 {
   background: #fff;
 }
 
+.stat-edit {
+  display: grid;
+  gap: 5px;
+  cursor: text;
+}
+
 .stat span {
   display: block;
   color: var(--muted);
@@ -549,6 +607,41 @@ h3 {
   display: block;
   margin-top: 4px;
   font-size: 1.18rem;
+}
+
+.city-title-input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.city-title-input:focus {
+  outline: none;
+  border-bottom-color: var(--jade);
+}
+
+.stat-input {
+  width: 100%;
+  min-height: 32px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.18rem;
+  font-weight: 900;
+}
+
+.stat-input:focus {
+  outline: 2px solid rgba(46, 111, 94, 0.22);
+  outline-offset: 3px;
 }
 
 .officer-list {
@@ -591,6 +684,10 @@ h3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+.editor-wide {
+  grid-column: 1 / -1;
 }
 
 .reward-grid {
@@ -639,13 +736,52 @@ h3 {
 
 .officer-card strong {
   display: block;
-  margin-bottom: 4px;
 }
 
 .officer-card span {
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.4;
+}
+
+.officer-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.officer-apply-button {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+}
+
+.officer-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.officer-edit-grid label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.officer-edit-grid input {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 7px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
 }
 
 .attack-box {
@@ -842,6 +978,10 @@ select {
 
   .editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .officer-edit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .reward-grid {
