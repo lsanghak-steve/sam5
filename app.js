@@ -773,6 +773,9 @@ const els = {
   foodInput: document.querySelector("#foodInput"),
   troopsInput: document.querySelector("#troopsInput"),
   applyResourceButton: document.querySelector("#applyResourceButton"),
+  totalTroopsInput: document.querySelector("#totalTroopsInput"),
+  distributeTotalTroopsButton: document.querySelector("#distributeTotalTroopsButton"),
+  troopDistributionInfo: document.querySelector("#troopDistributionInfo"),
   rewardOfficer: document.querySelector("#rewardOfficer"),
   rewardAmount: document.querySelector("#rewardAmount"),
   rewardInfo: document.querySelector("#rewardInfo"),
@@ -1398,15 +1401,24 @@ function renderCityStatInput({ field, label, value, step, max }, disabled) {
 
 function renderResourceEditor(city, faction) {
   const disabled = isProcessing();
+  const playerFaction = getPlayerFaction();
+  const playerCities = playerFaction ? getFactionCities(playerFaction.id) : [];
+  const totalTroops = playerCities.reduce((sum, item) => sum + item.troops, 0);
   if (document.activeElement !== els.cityNameInput) els.cityNameInput.value = city.name;
   if (document.activeElement !== els.goldInput) els.goldInput.value = faction.gold;
   if (document.activeElement !== els.foodInput) els.foodInput.value = faction.food;
   if (document.activeElement !== els.troopsInput) els.troopsInput.value = city.troops;
+  if (document.activeElement !== els.totalTroopsInput) els.totalTroopsInput.value = totalTroops;
   els.cityNameInput.disabled = disabled;
   els.goldInput.disabled = disabled;
   els.foodInput.disabled = disabled;
   els.troopsInput.disabled = disabled;
   els.applyResourceButton.disabled = disabled;
+  els.totalTroopsInput.disabled = disabled || !playerFaction || state.isGameOver;
+  els.distributeTotalTroopsButton.disabled = disabled || !playerFaction || playerCities.length === 0 || state.isGameOver;
+  els.troopDistributionInfo.textContent = playerFaction
+    ? `${playerFaction.name} 보유 성 ${playerCities.length}곳에 현재 총병력 ${totalTroops}명을 나누어 배치합니다.`
+    : "세력을 선택하면 보유 성 전체에 병력을 나눌 수 있습니다.";
 }
 
 function renderRewardPanel(city, officers) {
@@ -2280,6 +2292,10 @@ function getPlayerFaction() {
   return state.selectedFactionId ? getFaction(state.selectedFactionId) : null;
 }
 
+function getFactionCities(factionId) {
+  return state.cities.filter((city) => city.ownerFactionId === factionId);
+}
+
 function addLog(message) {
   state.log.push(`${state.year}년 ${state.month}월: ${message}`);
 }
@@ -2372,6 +2388,29 @@ function applyResourceEdit() {
   clampOfficerTroopsForCity(city);
   const nameText = previousName === city.name ? `${city.name}의` : `${previousName}의 이름을 ${city.name}(으)로 변경하고`;
   addLog(`${nameText} 도시 정보를 수정했습니다. 금 ${nextGold}, 군량 ${nextFood}, 병력 ${nextTroops}`);
+  render();
+}
+
+function distributeTotalTroops() {
+  if (isProcessing()) return;
+  const playerFaction = getPlayerFaction();
+  if (!playerFaction || state.isGameOver) return;
+
+  const playerCities = getFactionCities(playerFaction.id);
+  if (!playerCities.length) return;
+
+  const currentTotalTroops = playerCities.reduce((sum, city) => sum + city.troops, 0);
+  const totalTroops = readNonNegativeInteger(els.totalTroopsInput.value, currentTotalTroops);
+  const baseTroops = Math.floor(totalTroops / playerCities.length);
+  let remainder = totalTroops % playerCities.length;
+
+  playerCities.forEach((city) => {
+    city.troops = baseTroops + (remainder > 0 ? 1 : 0);
+    remainder -= 1;
+    clampOfficerTroopsForCity(city);
+  });
+
+  addLog(`${playerFaction.name}의 전체 병력 ${totalTroops}명을 보유 성 ${playerCities.length}곳에 균등 배분했습니다.`);
   render();
 }
 
@@ -2791,6 +2830,7 @@ els.saveSlot.addEventListener("change", () => {
 els.saveButton.addEventListener("click", saveGame);
 els.loadButton.addEventListener("click", loadGame);
 els.applyResourceButton.addEventListener("click", applyResourceEdit);
+els.distributeTotalTroopsButton.addEventListener("click", distributeTotalTroops);
 els.cityName.addEventListener("change", (event) => {
   if (event.target.id !== "cityTitleInput") return;
   applyCityNameInlineEdit(event.target.value);

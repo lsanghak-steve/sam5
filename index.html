@@ -134,6 +134,14 @@
                 </label>
               </div>
               <button id="applyResourceButton" class="primary-button" type="button">적용</button>
+              <div class="troop-distribution-editor">
+                <label>
+                  전체 병력
+                  <input id="totalTroopsInput" type="number" min="0" step="10" />
+                </label>
+                <button id="distributeTotalTroopsButton" class="ghost-button" type="button">전체 병력 균등 배분</button>
+              </div>
+              <p id="troopDistributionInfo" class="editor-help">보유 성 전체에 병력을 골고루 나눕니다.</p>
             </div>
             <div class="reward-panel">
               <h3>포상</h3>
