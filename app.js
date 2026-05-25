@@ -734,6 +734,8 @@ let autoWarTimer = null;
 let mapOffset = { x: 0, y: 0 };
 let mapScale = 1;
 let battleAnimationTimer = null;
+let officerListCollapsed = false;
+let cityControlsCollapsed = false;
 let mapDrag = {
   active: false,
   pointerId: null,
@@ -769,6 +771,10 @@ const els = {
   ownerBadge: document.querySelector("#ownerBadge"),
   cityVisual: document.querySelector("#cityVisual"),
   cityStats: document.querySelector("#cityStats"),
+  cityControlsSummary: document.querySelector("#cityControlsSummary"),
+  toggleCityControlsButton: document.querySelector("#toggleCityControlsButton"),
+  commandPanel: document.querySelector("#commandPanel"),
+  cityManagementPanel: document.querySelector("#cityManagementPanel"),
   cityNameInput: document.querySelector("#cityNameInput"),
   goldInput: document.querySelector("#goldInput"),
   foodInput: document.querySelector("#foodInput"),
@@ -796,6 +802,9 @@ const els = {
   recruitInfo: document.querySelector("#recruitInfo"),
   recruitOfficer: document.querySelector("#recruitOfficer"),
   recruitButton: document.querySelector("#recruitButton"),
+  officerListPanel: document.querySelector("#officerListPanel"),
+  toggleOfficerListButton: document.querySelector("#toggleOfficerListButton"),
+  officerListSummary: document.querySelector("#officerListSummary"),
   officerList: document.querySelector("#officerList"),
   commandQuota: document.querySelector("#commandQuota"),
   commandButtons: document.querySelector("#commandButtons"),
@@ -1012,6 +1021,7 @@ function render() {
   renderBattleAnimation();
   applyMapOffset();
   renderCityPanel(selectedCity, owner);
+  renderCityControlsToggle(selectedCity, owner);
   renderCommands(selectedCity);
   renderProgress();
   renderSaveStatus();
@@ -1054,6 +1064,16 @@ function openStoryModal() {
 
 function closeStoryModal() {
   els.storyModal.classList.add("hidden");
+}
+
+function toggleOfficerList() {
+  officerListCollapsed = !officerListCollapsed;
+  render();
+}
+
+function toggleCityControls() {
+  cityControlsCollapsed = !cityControlsCollapsed;
+  render();
 }
 
 function renderFactionChoices() {
@@ -1379,6 +1399,27 @@ function renderCityPanel(city, owner) {
   renderOfficerMovePanel(city, officers);
   renderScoutPanel(city, officers);
   renderRecruitPanel(city, officers);
+  renderOfficerList(officers);
+}
+
+function renderCityControlsToggle(city, owner) {
+  if (!city || !owner) return;
+  els.commandPanel.classList.toggle("hidden", cityControlsCollapsed);
+  els.cityManagementPanel.classList.toggle("hidden", cityControlsCollapsed);
+  els.toggleCityControlsButton.textContent = cityControlsCollapsed ? "펼치기" : "접기";
+  els.toggleCityControlsButton.setAttribute("aria-expanded", String(!cityControlsCollapsed));
+  els.cityControlsSummary.textContent = cityControlsCollapsed
+    ? `${city.name}의 명령과 관리 기능이 접혀 있습니다.`
+    : `${city.name} · ${owner.name} 세력의 명령과 관리 기능을 표시 중입니다.`;
+}
+
+function renderOfficerList(officers) {
+  els.officerListPanel.classList.toggle("collapsed", officerListCollapsed);
+  els.toggleOfficerListButton.textContent = officerListCollapsed ? "펼치기" : "접기";
+  els.toggleOfficerListButton.setAttribute("aria-expanded", String(!officerListCollapsed));
+  els.officerListSummary.textContent = officers.length
+    ? `현재 성 소속 장수 ${officers.length}명 · ${officerListCollapsed ? "상세 정보가 접혀 있습니다." : "능력치, 충성도, 병력을 바로 수정할 수 있습니다."}`
+    : "현재 성에 소속 장수가 없습니다.";
   els.officerList.innerHTML = officers.length
     ? officers.map(renderOfficerCard).join("")
     : `<p class="empty">소속 장수가 없습니다.</p>`;
@@ -2869,6 +2910,8 @@ els.officerList.addEventListener("click", (event) => {
   if (!button) return;
   applyOfficerEdit(button.dataset.officerId);
 });
+els.toggleCityControlsButton.addEventListener("click", toggleCityControls);
+els.toggleOfficerListButton.addEventListener("click", toggleOfficerList);
 els.assignTroopsButton.addEventListener("click", assignTroopsToOfficer);
 els.autoAssignTroopsButton.addEventListener("click", autoAssignTroops);
 els.moveOfficerButton.addEventListener("click", moveOfficerToCity);

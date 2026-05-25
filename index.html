@@ -92,7 +92,17 @@
             <div id="cityStats" class="stats-grid"></div>
           </section>
 
-          <section class="command-panel">
+          <section class="city-controls-toggle-panel">
+            <div class="city-controls-toggle-header">
+              <div>
+                <h2>도시 명령/관리</h2>
+                <p id="cityControlsSummary">도시 정보 아래 기능을 표시합니다.</p>
+              </div>
+              <button id="toggleCityControlsButton" class="ghost-button" type="button" aria-expanded="true">접기</button>
+            </div>
+          </section>
+
+          <section id="commandPanel" class="command-panel">
             <h2>명령</h2>
             <div id="commandQuota" class="command-quota">세력을 선택하면 명령 가능 횟수가 표시됩니다.</div>
             <div id="commandButtons" class="command-grid"></div>
@@ -113,7 +123,7 @@
             </div>
           </section>
 
-          <section class="city-management-panel">
+          <section id="cityManagementPanel" class="city-management-panel">
             <div class="resource-editor">
               <h3>도시 정보 직접 수정</h3>
               <div class="editor-grid">
@@ -211,8 +221,12 @@
               </div>
               <button id="recruitButton" class="primary-button" type="button">등용 시도</button>
             </div>
-            <div class="officer-list">
-              <h3>소속 장수</h3>
+            <div id="officerListPanel" class="officer-list">
+              <div class="officer-list-header">
+                <h3>소속 장수</h3>
+                <button id="toggleOfficerListButton" class="ghost-button" type="button" aria-expanded="true">접기</button>
+              </div>
+              <p id="officerListSummary" class="officer-list-summary">장수 정보를 표시합니다.</p>
               <div id="officerList"></div>
             </div>
           </section>
