@@ -345,7 +345,14 @@ h3 {
   gap: 18px;
 }
 
+.map-column {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
 .map-panel,
+.map-officer-list,
 .side-panel section,
 .log-panel {
   border: 1px solid var(--line);
@@ -1412,6 +1419,17 @@ h3 {
   gap: 10px;
 }
 
+.map-officer-list {
+  margin-top: 0;
+  padding: 14px;
+}
+
+#officerList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
 .officer-list-header {
   display: flex;
   align-items: center;
@@ -1439,10 +1457,6 @@ h3 {
 
 .officer-list.collapsed #officerList {
   display: none;
-}
-
-.officer-card + .officer-card {
-  margin-top: 8px;
 }
 
 .officer-card strong {

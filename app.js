@@ -7,12 +7,14 @@ const PROGRESS_CLEAR_MS = 900;
 const AUTO_PROGRESS_DELAY_MS = 260;
 const SCOUT_COST = 120;
 const RECRUIT_BASE_COST = 160;
+const HIDDEN_OFFICERS_PER_TURN = 10;
 const MIN_CITY_COMMAND_LIMIT = 1;
 const MAX_CITY_COMMAND_LIMIT = 4;
+const MAX_FAME = 500;
 const CITY_IMAGE_BASE = "assets/cities";
 const MAP_VIEWPORT_WIDTH_RATIO = 1.55;
 const MAP_VIEWPORT_HEIGHT_RATIO = 1.7;
-const MAP_ZOOM_MIN = 0.75;
+const MAP_ZOOM_MIN = 0.5;
 const MAP_ZOOM_MAX = 1.6;
 const MAP_ZOOM_STEP = 0.15;
 
@@ -645,6 +647,64 @@ const scenario = {
   hiddenOfficers: createHiddenOfficerPool(),
 };
 
+scenario.officers = createScenarioCityOfficers(scenario.officers, scenario.cities);
+
+function createScenarioCityOfficers(baseOfficers, cities) {
+  const officers = structuredClone(baseOfficers);
+  const officerCounts = new Map();
+
+  officers.forEach((officer) => {
+    const key = `${officer.cityId}:${officer.factionId}`;
+    officerCounts.set(key, (officerCounts.get(key) ?? 0) + 1);
+  });
+
+  cities.forEach((city) => {
+    const key = `${city.id}:${city.ownerFactionId}`;
+    const currentCount = officerCounts.get(key) ?? 0;
+    const targetCount = getScenarioCityOfficerTarget(city);
+    const missingCount = Math.max(0, targetCount - currentCount);
+
+    for (let index = 0; index < missingCount; index += 1) {
+      officers.push(createScenarioLocalOfficer(city, currentCount + index));
+    }
+
+    officerCounts.set(key, currentCount + missingCount);
+  });
+
+  return officers;
+}
+
+function getScenarioCityOfficerTarget(city) {
+  return 1 + (getStableScenarioNumber(`${city.id}:${city.name}:officers`) % 10);
+}
+
+function createScenarioLocalOfficer(city, index) {
+  const seed = getStableScenarioNumber(`${city.id}:local-officer:${index}`);
+  return {
+    id: `local-${city.id}-${index + 1}`,
+    name: `${city.name} 장수 ${index + 1}`,
+    factionId: city.ownerFactionId,
+    cityId: city.id,
+    leadership: getScenarioStat(seed, 17, 45, 88),
+    war: getScenarioStat(seed, 23, 38, 90),
+    intelligence: getScenarioStat(seed, 31, 40, 92),
+    politics: getScenarioStat(seed, 43, 36, 90),
+    charm: getScenarioStat(seed, 53, 42, 88),
+    loyalty: getScenarioStat(seed, 61, 70, 94),
+    troops: 0,
+  };
+}
+
+function getScenarioStat(seed, salt, min, max) {
+  return min + ((seed + salt * 997) % (max - min + 1));
+}
+
+function getStableScenarioNumber(value) {
+  return [...value].reduce((hash, character) => {
+    return (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }, 2166136261);
+}
+
 const commands = [
   {
     id: "develop",
@@ -1163,6 +1223,44 @@ function withHiddenOfficerPool(hiddenOfficers, officers) {
   return Array.from(hiddenById.values());
 }
 
+function replenishHiddenOfficers(count = HIDDEN_OFFICERS_PER_TURN) {
+  const usedOfficerIds = new Set([...state.officers, ...state.hiddenOfficers].map((officer) => officer.id));
+  const addedOfficers = [];
+  let sequence = 1;
+
+  while (addedOfficers.length < count && sequence <= count * 20) {
+    const officer = createTurnHiddenOfficer(state.year, state.month, sequence);
+    sequence += 1;
+    if (usedOfficerIds.has(officer.id)) continue;
+    usedOfficerIds.add(officer.id);
+    addedOfficers.push(officer);
+  }
+
+  state.hiddenOfficers.push(...addedOfficers);
+  if (addedOfficers.length > 0) {
+    addLog(`재야에 새 장수 ${addedOfficers.length}명이 나타났습니다. 현재 재야 장수 ${state.hiddenOfficers.length}명.`);
+  }
+}
+
+function createTurnHiddenOfficer(year, month, sequence) {
+  const id = `turn-wild-${year}-${String(month).padStart(2, "0")}-${String(sequence).padStart(3, "0")}`;
+  const seed = getStableScenarioNumber(id);
+  const surnames = ["한", "유", "조", "전", "장", "손", "마", "황", "문", "서"];
+  const givenFirst = ["자", "중", "백", "공", "문", "원", "경", "덕", "효", "승"];
+  const givenSecond = ["평", "달", "명", "진", "겸", "수", "지", "운", "영", "길"];
+
+  return {
+    id,
+    name: `${surnames[seed % surnames.length]}${givenFirst[Math.floor(seed / 7) % givenFirst.length]}${givenSecond[Math.floor(seed / 13) % givenSecond.length]}`,
+    leadership: getScenarioStat(seed, 11, 48, 92),
+    war: getScenarioStat(seed, 19, 40, 94),
+    intelligence: getScenarioStat(seed, 29, 42, 94),
+    politics: getScenarioStat(seed, 37, 36, 92),
+    charm: getScenarioStat(seed, 47, 45, 90),
+    loyalty: getScenarioStat(seed, 59, 55, 86),
+  };
+}
+
 function withOfficerTroops(officers) {
   return officers.map((officer) => ({
     ...officer,
@@ -1189,10 +1287,15 @@ function render() {
 
   els.dateLabel.textContent = `${state.year}년 ${state.month}월`;
   els.factionLabel.textContent = playerFaction ? `플레이어: ${playerFaction.name}` : "세력 선택 중";
+  const remainingEnemyCities = playerFaction ? getRemainingEnemyCityCount(playerFaction.id) : state.cities.length;
   els.fameLabel.textContent = playerFaction
-    ? `명성 ${getFactionFame(playerFaction.id)} / 도시당 명령 ${getFactionCommandLimit(playerFaction.id)}회`
+    ? `명성 ${getFactionFame(playerFaction.id)}/${MAX_FAME} / 도시당 명령 ${getFactionCommandLimit(playerFaction.id)}회 / 남은 성 ${remainingEnemyCities}곳`
     : "명성 -";
-  els.objectiveLabel.textContent = state.isGameOver ? getGameOverText() : "목표: 모든 도시 통일";
+  els.objectiveLabel.textContent = state.isGameOver
+    ? getGameOverText()
+    : playerFaction
+      ? `목표: 천하 통일 · 남은 성 ${remainingEnemyCities}곳`
+      : "목표: 모든 도시 통일";
   els.setupPanel.classList.toggle("hidden", Boolean(playerFaction));
   renderSaveSlots();
   els.endTurnButton.disabled = !playerFaction || state.isGameOver || busy;
@@ -1286,13 +1389,14 @@ function renderFactionChoices() {
   els.factionChoices.innerHTML = "";
   state.factions.forEach((faction) => {
     const cityCount = state.cities.filter((city) => city.ownerFactionId === faction.id).length;
+    const remainingCount = state.cities.length - cityCount;
     const fame = getFactionFame(faction.id);
     const commandLimit = getFactionCommandLimit(faction.id);
     const button = document.createElement("button");
     button.className = "choice-button";
     button.type = "button";
     button.disabled = isProcessing();
-    button.innerHTML = `<strong>${faction.name}</strong><span>도시 ${cityCount} / 명성 ${fame} / 명령 ${commandLimit}회<br>금 ${faction.gold} / 군량 ${faction.food}</span>`;
+    button.innerHTML = `<strong>${faction.name}</strong><span>도시 ${cityCount} / 남은 성 ${remainingCount} / 명성 ${fame}<br>명령 ${commandLimit}회 / 금 ${faction.gold} / 군량 ${faction.food}</span>`;
     button.style.borderColor = faction.color;
     button.addEventListener("click", () => chooseFaction(faction.id));
     els.factionChoices.append(button);
@@ -1312,12 +1416,13 @@ function renderRulerPanel(playerFaction) {
 
   const ruler = state.officers.find((officer) => officer.id === playerFaction.rulerId);
   const cityCount = state.cities.filter((city) => city.ownerFactionId === playerFaction.id).length;
+  const officerCount = getFactionOfficers(playerFaction.id).length;
   const fame = getFactionFame(playerFaction.id);
   els.rulerFactionBadge.textContent = playerFaction.name;
   els.rulerFactionBadge.style.borderColor = playerFaction.color;
   els.rulerFactionBadge.style.color = playerFaction.color;
   els.rulerName.textContent = ruler ? ruler.name : playerFaction.name;
-  els.rulerSummary.textContent = `보유 도시 ${cityCount} · 명성 ${fame} · 도시당 명령 ${getFactionCommandLimit(playerFaction.id)}회`;
+  els.rulerSummary.textContent = `보유 도시 ${cityCount} · 남은 성 ${getRemainingEnemyCityCount(playerFaction.id)} · 전체 장수 ${officerCount}명 · 명성 ${fame}/${MAX_FAME} · 도시당 명령 ${getFactionCommandLimit(playerFaction.id)}회`;
   applyPortraitStyle(playerFaction);
 }
 
@@ -2043,6 +2148,7 @@ function endTurn() {
       collectIncome();
       runAiTurn();
       advanceDate();
+      replenishHiddenOfficers();
       state.actedCityIds = [];
       state.cityActionCounts = {};
       checkGameOver();
@@ -2112,12 +2218,12 @@ function runAutoProgressStep() {
   }
 
   if (!isAutoProgressReadyForWar(playerCities)) {
-    endTurn();
+    endAutoProgressTurn();
     return;
   }
 
   if (!playerCities.some((city) => canCityAct(city.id))) {
-    endTurn();
+    endAutoProgressTurn();
     return;
   }
 
@@ -2130,6 +2236,91 @@ function runAutoProgressStep() {
   state.selectedCityId = battlePlan.fromCity.id;
   render();
   runBattleProgress(battlePlan.fromCity, battlePlan.toCity);
+}
+
+function endAutoProgressTurn() {
+  const playerFaction = getPlayerFaction();
+  if (playerFaction) {
+    runAutoProgressTurnMaintenance(playerFaction);
+  }
+  endTurn();
+}
+
+function runAutoProgressTurnMaintenance(playerFaction) {
+  const recruitedOfficers = recruitHiddenOfficersForAutoProgress(playerFaction);
+  recruitedOfficers.forEach((officer) => {
+    officer.loyalty = 100;
+  });
+
+  const balanceResult = balanceFactionOfficersAcrossCities(playerFaction.id);
+  const troopResult = redistributeFactionTroops(playerFaction.id);
+
+  if (recruitedOfficers.length || balanceResult.officerCount || troopResult.cityCount) {
+    addLog(
+      `자동 진행 정리: 재야 장수 ${recruitedOfficers.length}명 등용, 충성 100 보정, 장수 ${balanceResult.officerCount}명 재배치, 병력 ${troopResult.totalTroops}명 재분배.`,
+    );
+  }
+}
+
+function recruitHiddenOfficersForAutoProgress(playerFaction) {
+  const playerCities = getFactionCities(playerFaction.id);
+  if (!playerCities.length || !state.hiddenOfficers.length) return [];
+
+  const recruitCount = Math.min(HIDDEN_OFFICERS_PER_TURN, state.hiddenOfficers.length);
+  const recruitedOfficers = [];
+
+  for (let index = 0; index < recruitCount; index += 1) {
+    const targetCity = getCityNeedingOfficers(playerCities);
+    const hiddenOfficer = state.hiddenOfficers.shift();
+    if (!targetCity || !hiddenOfficer) break;
+
+    const recruitedOfficer = {
+      ...hiddenOfficer,
+      factionId: playerFaction.id,
+      cityId: targetCity.id,
+      loyalty: 100,
+      troops: 0,
+    };
+    state.officers.push(recruitedOfficer);
+    recruitedOfficers.push(recruitedOfficer);
+  }
+
+  return recruitedOfficers;
+}
+
+function getCityNeedingOfficers(cities) {
+  return cities
+    .slice()
+    .sort((a, b) => cityOfficers(a).length - cityOfficers(b).length || a.troops - b.troops || a.name.localeCompare(b.name))[0] ?? null;
+}
+
+function redistributeFactionTroops(factionId) {
+  const cities = getFactionCities(factionId);
+  if (!cities.length) return { cityCount: 0, totalTroops: 0 };
+
+  const totalTroops = cities.reduce((sum, city) => sum + city.troops, 0);
+  const baseTroops = Math.floor(totalTroops / cities.length);
+  let cityRemainder = totalTroops % cities.length;
+
+  cities.forEach((city) => {
+    city.troops = baseTroops + (cityRemainder > 0 ? 1 : 0);
+    if (cityRemainder > 0) cityRemainder -= 1;
+    distributeCityTroopsToOfficers(city);
+  });
+
+  return { cityCount: cities.length, totalTroops };
+}
+
+function distributeCityTroopsToOfficers(city) {
+  const officers = cityOfficers(city);
+  if (!officers.length) return;
+
+  const baseTroops = Math.floor(city.troops / officers.length);
+  let remainder = city.troops % officers.length;
+  officers.forEach((officer) => {
+    officer.troops = baseTroops + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+  });
 }
 
 function getAutoProgressCommand(city, faction) {
@@ -2697,15 +2888,20 @@ function getCityCommandLimit(cityId) {
 
 function getFactionCommandLimit(factionId) {
   const fame = getFactionFame(factionId);
-  if (fame >= 90) return MAX_CITY_COMMAND_LIMIT;
-  if (fame >= 60) return 3;
-  if (fame >= 30) return 2;
+  if (fame >= 120) return MAX_CITY_COMMAND_LIMIT;
+  if (fame >= 80) return 3;
+  if (fame >= 40) return 2;
   return MIN_CITY_COMMAND_LIMIT;
 }
 
 function getFactionFame(factionId) {
   const cityCount = state.cities.filter((city) => city.ownerFactionId === factionId).length;
-  return clamp(cityCount * 10, 0, 100);
+  if (!state.cities.length) return 0;
+  return clamp(Math.round((cityCount / state.cities.length) * MAX_FAME), 0, MAX_FAME);
+}
+
+function getRemainingEnemyCityCount(factionId) {
+  return state.cities.filter((city) => city.ownerFactionId !== factionId).length;
 }
 
 function getAssignedTroops(city) {
@@ -3093,16 +3289,25 @@ function balanceOfficersAcrossCities() {
   const playerOfficers = getFactionOfficers(playerFaction.id);
   if (!playerCities.length || !playerOfficers.length) return;
 
-  playerOfficers.forEach((officer, index) => {
-    const targetCity = playerCities[index % playerCities.length];
+  const result = balanceFactionOfficersAcrossCities(playerFaction.id);
+  const summary = playerCities.map((city) => `${city.name} ${cityOfficers(city).length}명`).join(", ");
+  addLog(`${playerFaction.name} 소속 장수 ${result.officerCount}명을 보유 성 ${result.cityCount}곳에 균등 배치했습니다. ${summary}`);
+  render();
+}
+
+function balanceFactionOfficersAcrossCities(factionId) {
+  const cities = getFactionCities(factionId);
+  const officers = getFactionOfficers(factionId);
+  if (!cities.length || !officers.length) return { cityCount: cities.length, officerCount: officers.length };
+
+  officers.forEach((officer, index) => {
+    const targetCity = cities[index % cities.length];
     officer.cityId = targetCity.id;
     officer.troops = 0;
   });
 
-  playerCities.forEach(clampOfficerTroopsForCity);
-  const summary = playerCities.map((city) => `${city.name} ${cityOfficers(city).length}명`).join(", ");
-  addLog(`${playerFaction.name} 소속 장수 ${playerOfficers.length}명을 보유 성 ${playerCities.length}곳에 균등 배치했습니다. ${summary}`);
-  render();
+  cities.forEach(clampOfficerTroopsForCity);
+  return { cityCount: cities.length, officerCount: officers.length };
 }
 
 function rewardOfficer() {

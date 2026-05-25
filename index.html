@@ -28,6 +28,7 @@
       </header>
 
       <main class="layout">
+        <div class="map-column">
         <section class="map-panel" aria-label="전략 지도">
           <div class="map-header">
             <div>
@@ -54,6 +55,16 @@
             </div>
           </div>
         </section>
+
+        <section id="officerListPanel" class="officer-list map-officer-list">
+          <div class="officer-list-header">
+            <h3>소속 장수</h3>
+            <button id="toggleOfficerListButton" class="ghost-button" type="button" aria-expanded="true">접기</button>
+          </div>
+          <p id="officerListSummary" class="officer-list-summary">장수 정보를 표시합니다.</p>
+          <div id="officerList"></div>
+        </section>
+        </div>
 
         <aside class="side-panel">
           <section class="setup-panel" id="setupPanel">
@@ -225,14 +236,6 @@
                 </label>
               </div>
               <button id="recruitButton" class="primary-button" type="button">등용 시도</button>
-            </div>
-            <div id="officerListPanel" class="officer-list">
-              <div class="officer-list-header">
-                <h3>소속 장수</h3>
-                <button id="toggleOfficerListButton" class="ghost-button" type="button" aria-expanded="true">접기</button>
-              </div>
-              <p id="officerListSummary" class="officer-list-summary">장수 정보를 표시합니다.</p>
-              <div id="officerList"></div>
             </div>
           </section>
 
