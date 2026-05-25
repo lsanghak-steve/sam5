@@ -1260,6 +1260,7 @@ const els = {
   balanceOfficersButton: document.querySelector("#balanceOfficersButton"),
   scoutInfo: document.querySelector("#scoutInfo"),
   scoutButton: document.querySelector("#scoutButton"),
+  scoutAllButton: document.querySelector("#scoutAllButton"),
   recruitInfo: document.querySelector("#recruitInfo"),
   recruitOfficer: document.querySelector("#recruitOfficer"),
   recruitButton: document.querySelector("#recruitButton"),
@@ -2133,10 +2134,12 @@ function renderScoutPanel(city, officers) {
   const canScout = playerFaction && city.ownerFactionId === playerFaction.id && hasHiddenOfficers && !state.isGameOver && !isProcessing();
   const bestCharm = officers.reduce((best, officer) => Math.max(best, officer.charm), 45);
   const chance = getScoutChance(bestCharm);
+  const affordableScoutCount = Math.min(state.hiddenOfficers.length, Math.floor(faction.gold / SCOUT_COST));
   const remainingText = hasHiddenOfficers ? `남은 재야 장수 ${state.hiddenOfficers.length}명` : "더 이상 찾을 재야 장수가 없습니다.";
   const ownerText = playerFaction && city.ownerFactionId === playerFaction.id ? `성공률 약 ${chance}%` : "플레이어 도시에서만 탐색할 수 있습니다.";
-  els.scoutInfo.textContent = `비용 금 ${SCOUT_COST} · ${remainingText} · ${ownerText} · 보유 금 ${faction.gold}`;
+  els.scoutInfo.textContent = `비용 금 ${SCOUT_COST} · ${remainingText} · 일괄 가능 ${affordableScoutCount}회 · ${ownerText} · 보유 금 ${faction.gold}`;
   els.scoutButton.disabled = !canScout;
+  els.scoutAllButton.disabled = !canScout || affordableScoutCount <= 0;
 }
 
 function renderRecruitPanel(city, officers) {
@@ -3718,12 +3721,60 @@ function scoutOfficer() {
     return;
   }
 
-  const bestCharm = cityOfficers(city).reduce((best, officer) => Math.max(best, officer.charm), 45);
-  const chance = getScoutChance(bestCharm);
-  if (Math.random() * 100 >= chance) {
+  const result = runScoutAttempt(city, playerFaction, getScoutChanceForCity(city));
+  if (!result.success) {
     addLog(`${city.name}에서 인재를 탐색했지만 성과가 없었습니다.`);
     render();
     return;
+  }
+
+  addLog(`${city.name}에서 ${withObject(result.officer.name)} 찾아 ${playerFaction.name} 세력에 등용했습니다.`);
+  render();
+}
+
+function scoutAllOfficers() {
+  if (isProcessing()) return;
+  const city = getCity(state.selectedCityId);
+  const playerFaction = getPlayerFaction();
+  if (!city || !playerFaction) return;
+  if (city.ownerFactionId !== playerFaction.id) {
+    addLog("인재 탐색은 플레이어가 소유한 도시에서만 할 수 있습니다.");
+    render();
+    return;
+  }
+  if (state.hiddenOfficers.length === 0) {
+    addLog("더 이상 찾을 재야 장수가 없습니다.");
+    render();
+    return;
+  }
+
+  const faction = getFaction(playerFaction.id);
+  const attemptCount = Math.min(state.hiddenOfficers.length, Math.floor(faction.gold / SCOUT_COST));
+  if (attemptCount <= 0) {
+    addLog(`${playerFaction.name}의 금이 부족해 일괄 탐색을 진행할 수 없습니다.`);
+    render();
+    return;
+  }
+
+  faction.gold -= attemptCount * SCOUT_COST;
+  const chance = getScoutChanceForCity(city);
+  const recruitedOfficers = [];
+  for (let index = 0; index < attemptCount; index += 1) {
+    const result = runScoutAttempt(city, playerFaction, chance);
+    if (result.success) recruitedOfficers.push(result.officer);
+  }
+
+  const names = recruitedOfficers.slice(0, 8).map((officer) => officer.name).join(", ");
+  const suffix = recruitedOfficers.length > 8 ? ` 외 ${recruitedOfficers.length - 8}명` : "";
+  addLog(
+    `${city.name}에서 인재 일괄 탐색 ${attemptCount}회를 진행해 ${recruitedOfficers.length}명을 등용했습니다.${recruitedOfficers.length ? ` ${names}${suffix}` : ""}`,
+  );
+  render();
+}
+
+function runScoutAttempt(city, playerFaction, chance) {
+  if (Math.random() * 100 >= chance || state.hiddenOfficers.length === 0) {
+    return { success: false, officer: null };
   }
 
   const foundIndex = Math.floor(Math.random() * state.hiddenOfficers.length);
@@ -3736,8 +3787,12 @@ function scoutOfficer() {
     loyalty: clamp(foundOfficer.loyalty, 40, 100),
   };
   state.officers.push(recruitedOfficer);
-  addLog(`${city.name}에서 ${withObject(recruitedOfficer.name)} 찾아 ${playerFaction.name} 세력에 등용했습니다.`);
-  render();
+  return { success: true, officer: recruitedOfficer };
+}
+
+function getScoutChanceForCity(city) {
+  const bestCharm = cityOfficers(city).reduce((best, officer) => Math.max(best, officer.charm), 45);
+  return getScoutChance(bestCharm);
 }
 
 function getScoutChance(bestCharm) {
@@ -3875,6 +3930,7 @@ els.rewardAmount.addEventListener("input", () => {
   renderRewardPanel(city, cityOfficers(city));
 });
 els.scoutButton.addEventListener("click", scoutOfficer);
+els.scoutAllButton.addEventListener("click", scoutAllOfficers);
 els.recruitOfficer.addEventListener("change", () => {
   const city = getCity(state.selectedCityId);
   if (!city) return;
