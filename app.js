@@ -11,6 +11,35 @@ const HIDDEN_OFFICERS_PER_TURN = 10;
 const MIN_CITY_COMMAND_LIMIT = 1;
 const MAX_CITY_COMMAND_LIMIT = 4;
 const MAX_FAME = 500;
+const DEFAULT_DIFFICULTY_MODE = "easy";
+const DIFFICULTY_MODES = {
+  easy: {
+    label: "easy",
+    playerIncome: 1.2,
+    enemyIncome: 0.9,
+    playerBattle: 1.12,
+    enemyBattle: 0.92,
+    aiAttackChance: 0.34,
+    aiAttackTroopRatio: 1.35,
+    aiTrainingGap: -8,
+    aiTroopGain: 0.9,
+    aiTrainingGain: 5,
+    aiDomesticGain: 4,
+  },
+  hard: {
+    label: "hard",
+    playerIncome: 0.72,
+    enemyIncome: 1.75,
+    playerBattle: 0.72,
+    enemyBattle: 1.65,
+    aiAttackChance: 0.88,
+    aiAttackTroopRatio: 1.04,
+    aiTrainingGap: -22,
+    aiTroopGain: 2.25,
+    aiTrainingGain: 11,
+    aiDomesticGain: 9,
+  },
+};
 const CITY_IMAGE_BASE = "assets/cities";
 const MAP_VIEWPORT_WIDTH_RATIO = 1.55;
 const MAP_VIEWPORT_HEIGHT_RATIO = 1.7;
@@ -1177,9 +1206,11 @@ let mapDrag = {
 const els = {
   dateLabel: document.querySelector("#dateLabel"),
   factionLabel: document.querySelector("#factionLabel"),
+  modeLabel: document.querySelector("#modeLabel"),
   fameLabel: document.querySelector("#fameLabel"),
   objectiveLabel: document.querySelector("#objectiveLabel"),
   setupPanel: document.querySelector("#setupPanel"),
+  difficultyMode: document.querySelector("#difficultyMode"),
   factionChoices: document.querySelector("#factionChoices"),
   rulerPanel: document.querySelector("#rulerPanel"),
   rulerFactionBadge: document.querySelector("#rulerFactionBadge"),
@@ -1289,6 +1320,7 @@ function createScenarioState(preset = {}) {
   return {
     year: preset.year ?? scenario.year,
     month: preset.month ?? scenario.month,
+    difficultyMode: getValidDifficultyMode(preset.difficultyMode),
     selectedFactionId: preset.factionId ?? null,
     selectedCityId: preset.selectedCityId ?? "shou",
     actedCityIds: [],
@@ -1352,6 +1384,18 @@ function getSelectedSaveSlot() {
   return 1;
 }
 
+function getValidDifficultyMode(mode) {
+  return Object.hasOwn(DIFFICULTY_MODES, mode) ? mode : DEFAULT_DIFFICULTY_MODE;
+}
+
+function getDifficultyConfig(mode = state?.difficultyMode) {
+  return DIFFICULTY_MODES[getValidDifficultyMode(mode)];
+}
+
+function getDifficultyLabel(mode = state?.difficultyMode) {
+  return getDifficultyConfig(mode).label;
+}
+
 function normalizeState(nextState) {
   const cityActionCounts = { ...(nextState.cityActionCounts ?? {}) };
   if (!nextState.cityActionCounts && Array.isArray(nextState.actedCityIds)) {
@@ -1363,6 +1407,7 @@ function normalizeState(nextState) {
 
   return {
     ...nextState,
+    difficultyMode: getValidDifficultyMode(nextState.difficultyMode),
     actedCityIds: Array.isArray(nextState.actedCityIds) ? nextState.actedCityIds : [],
     cityActionCounts,
     cities: withScenarioCities(Array.isArray(nextState.cities) ? nextState.cities : structuredClone(scenario.cities)),
@@ -1482,6 +1527,11 @@ function render() {
 
   els.dateLabel.textContent = `${state.year}년 ${state.month}월`;
   els.factionLabel.textContent = playerFaction ? `플레이어: ${playerFaction.name}` : "세력 선택 중";
+  els.modeLabel.textContent = `모드 ${getDifficultyLabel()}`;
+  if (els.difficultyMode) {
+    els.difficultyMode.value = getValidDifficultyMode(state.difficultyMode);
+    els.difficultyMode.disabled = Boolean(playerFaction) || busy;
+  }
   const remainingEnemyCities = playerFaction ? getRemainingEnemyCityCount(playerFaction.id) : state.cities.length;
   els.fameLabel.textContent = playerFaction
     ? `명성 ${getFactionFame(playerFaction.id)}/${MAX_FAME} / 도시당 명령 ${getFactionCommandLimit(playerFaction.id)}회 / 남은 성 ${remainingEnemyCities}곳`
@@ -1563,7 +1613,7 @@ function startStoryScenario(storyId) {
   const preset = storyScenarioPresets[storyId];
   if (!preset) return;
   stopAllAutomation();
-  state = createScenarioState(preset);
+  state = createScenarioState({ ...preset, difficultyMode: state.difficultyMode });
   closeStoryModal();
   addLog(`${preset.title} 이야기를 선택했습니다. 지도와 군주 구성이 적용되었습니다.`);
   render();
@@ -1582,6 +1632,7 @@ function toggleCityControls() {
 
 function renderFactionChoices() {
   els.factionChoices.innerHTML = "";
+  const modeLabel = getDifficultyLabel();
   state.factions.forEach((faction) => {
     const cityCount = state.cities.filter((city) => city.ownerFactionId === faction.id).length;
     const remainingCount = state.cities.length - cityCount;
@@ -1591,7 +1642,7 @@ function renderFactionChoices() {
     button.className = "choice-button";
     button.type = "button";
     button.disabled = isProcessing();
-    button.innerHTML = `<strong>${faction.name}</strong><span>도시 ${cityCount} / 남은 성 ${remainingCount} / 명성 ${fame}<br>명령 ${commandLimit}회 / 금 ${faction.gold} / 군량 ${faction.food}</span>`;
+    button.innerHTML = `<strong>${faction.name}</strong><span>모드 ${modeLabel} / 도시 ${cityCount} / 남은 성 ${remainingCount} / 명성 ${fame}<br>명령 ${commandLimit}회 / 금 ${faction.gold} / 군량 ${faction.food}</span>`;
     button.style.borderColor = faction.color;
     button.addEventListener("click", () => chooseFaction(faction.id));
     els.factionChoices.append(button);
@@ -1664,6 +1715,7 @@ function renderCities() {
     button.style.left = `calc(${city.x}% - 58px)`;
     button.style.top = `calc(${city.y}% - 62px)`;
     button.style.borderColor = faction.color;
+    button.style.setProperty("--owner-color", faction.color);
     button.innerHTML = `
       <img class="city-node-image" src="${escapeAttribute(getCityImage(city))}" alt="" loading="lazy" />
       <span class="city-name">${city.name}</span>
@@ -2239,8 +2291,9 @@ function getSaveRecordLabel(record) {
   const faction = Array.isArray(saveState.factions) ? saveState.factions.find((item) => item.id === saveState.selectedFactionId) : null;
   const dateText = saveState.year && saveState.month ? `${saveState.year}년 ${saveState.month}월` : "날짜 미정";
   const factionText = faction ? faction.name : "세력 미선택";
+  const modeText = getDifficultyLabel(saveState.difficultyMode);
   const savedText = record.savedAt ? formatSavedAt(record.savedAt) : "저장 시각 없음";
-  return `${dateText} · ${factionText} · ${savedText}`;
+  return `${dateText} · ${factionText} · ${modeText} · ${savedText}`;
 }
 
 function renderLog() {
@@ -2256,7 +2309,7 @@ function chooseFaction(factionId) {
   state.selectedFactionId = factionId;
   const firstCity = state.cities.find((city) => city.ownerFactionId === factionId);
   state.selectedCityId = firstCity?.id ?? state.cities[0].id;
-  addLog(`${getFaction(factionId).name} 세력으로 플레이를 시작했습니다.`);
+  addLog(`${getFaction(factionId).name} 세력으로 ${getDifficultyLabel()} 모드 플레이를 시작했습니다.`);
   render();
 }
 
@@ -2887,10 +2940,13 @@ function isProcessing() {
 }
 
 function collectIncome() {
+  const playerFaction = getPlayerFaction();
+  const difficulty = getDifficultyConfig();
   state.cities.forEach((city) => {
     const faction = getFaction(city.ownerFactionId);
-    faction.gold += Math.round(city.commerce * 0.9 + city.order * 0.25);
-    faction.food += Math.round(city.development * 1.2 + city.population * 0.08);
+    const multiplier = playerFaction && faction.id === playerFaction.id ? difficulty.playerIncome : difficulty.enemyIncome;
+    faction.gold += Math.round((city.commerce * 0.9 + city.order * 0.25) * multiplier);
+    faction.food += Math.round((city.development * 1.2 + city.population * 0.08) * multiplier);
   });
   addLog("각 세력이 도시 수입을 거두었습니다.");
 }
@@ -2905,27 +2961,37 @@ function runAiTurn() {
 }
 
 function runAiCityTurn(city, faction) {
+  const difficulty = getDifficultyConfig();
   const possibleTargets = getAttackTargets(city).filter((target) => target.ownerFactionId !== faction.id);
-  const weakTarget = possibleTargets.find((target) => city.troops > target.troops * 1.35 && city.training >= target.training - 8);
-  if (weakTarget && Math.random() < 0.44) {
+  const weakTarget = possibleTargets.find(
+    (target) => city.troops > target.troops * difficulty.aiAttackTroopRatio && city.training >= target.training + difficulty.aiTrainingGap,
+  );
+  if (weakTarget && Math.random() < difficulty.aiAttackChance) {
     resolveBattle(city, weakTarget, false);
     return;
   }
 
   const choice = Math.random();
   if (choice < 0.28 && spend(faction, 35, 35, false)) {
-    city.training = clamp(city.training + 5, 0, 100);
+    city.training = clamp(city.training + difficulty.aiTrainingGain, 0, 100);
     addLog(`${withSubject(faction.name)} ${city.name}의 병사를 훈련했습니다.`);
   } else if (choice < 0.56 && spend(faction, 45, 0, false)) {
-    city.development = clamp(city.development + 4, 0, 100);
-    city.commerce = clamp(city.commerce + 3, 0, 100);
+    city.development = clamp(city.development + difficulty.aiDomesticGain, 0, 100);
+    city.commerce = clamp(city.commerce + Math.max(1, difficulty.aiDomesticGain - 1), 0, 100);
     addLog(`${withSubject(faction.name)} ${city.name}의 내정을 정비했습니다.`);
   } else if (spend(faction, 30, 55, false)) {
-    const gained = 18 + Math.floor(Math.random() * 20);
+    const gained = Math.round((18 + Math.floor(Math.random() * 20)) * difficulty.aiTroopGain);
     city.troops += gained;
     city.order = clamp(city.order - 2, 0, 100);
     addLog(`${withSubject(faction.name)} ${city.name}에서 병력을 모았습니다.`);
   }
+}
+
+function getBattleDifficultyMultiplier(factionId) {
+  const playerFaction = getPlayerFaction();
+  if (!playerFaction) return 1;
+  const difficulty = getDifficultyConfig();
+  return factionId === playerFaction.id ? difficulty.playerBattle : difficulty.enemyBattle;
 }
 
 function resolveBattle(fromCity, toCity, isPlayerAttack) {
@@ -2935,8 +3001,19 @@ function resolveBattle(fromCity, toCity, isPlayerAttack) {
   const defendTroops = getBattleTroops(toCity);
   const attackOfficerPower = getBattleOfficerPower(fromCity, 120);
   const defendOfficerPower = getBattleOfficerPower(toCity, 110);
-  const attackPower = attackTroops * (0.75 + fromCity.training / 100) * (attackOfficerPower / 150) * randomRange(0.82, 1.18);
-  const defendPower = defendTroops * (0.85 + toCity.training / 100) * (toCity.order / 90) * (defendOfficerPower / 150) * randomRange(0.82, 1.18);
+  const attackPower =
+    attackTroops *
+    (0.75 + fromCity.training / 100) *
+    (attackOfficerPower / 150) *
+    getBattleDifficultyMultiplier(attacker.id) *
+    randomRange(0.82, 1.18);
+  const defendPower =
+    defendTroops *
+    (0.85 + toCity.training / 100) *
+    (toCity.order / 90) *
+    (defendOfficerPower / 150) *
+    getBattleDifficultyMultiplier(defender.id) *
+    randomRange(0.82, 1.18);
 
   if (attackPower > defendPower) {
     const survivorRate = clamp(0.5 + (attackPower - defendPower) / Math.max(attackPower, 1) * 0.25, 0.32, 0.72);
@@ -3720,7 +3797,13 @@ function stopAllAutomation() {
 function newGame() {
   if (isProcessing()) return;
   stopAllAutomation();
-  state = createScenarioState();
+  state = createScenarioState({ difficultyMode: getValidDifficultyMode(els.difficultyMode?.value ?? state.difficultyMode) });
+  render();
+}
+
+function changeDifficultyMode() {
+  if (isProcessing() || state.selectedFactionId) return;
+  state.difficultyMode = getValidDifficultyMode(els.difficultyMode.value);
   render();
 }
 
@@ -3809,6 +3892,7 @@ els.storyModal.addEventListener("click", (event) => {
   if (event.target === els.storyModal) closeStoryModal();
 });
 els.newGameButton.addEventListener("click", newGame);
+els.difficultyMode.addEventListener("change", changeDifficultyMode);
 els.victoryCloseButton.addEventListener("click", () => {
   state.victoryPopupDismissed = true;
   render();

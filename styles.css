@@ -341,7 +341,7 @@ h3 {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 18px;
 }
 
@@ -481,16 +481,21 @@ h3 {
 }
 
 .city-node {
+  --owner-color: var(--jade);
   position: absolute;
   width: 116px;
   min-height: 124px;
   padding: 8px;
   border: 2px solid rgba(25, 23, 20, 0.12);
   border-radius: 8px;
-  background: #fff;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--owner-color), #fff 66%), color-mix(in srgb, var(--owner-color), #fff 86%)),
+    #fff;
   color: var(--ink);
   text-align: left;
-  box-shadow: 0 10px 22px rgba(25, 23, 20, 0.14);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.68),
+    0 10px 22px rgba(25, 23, 20, 0.18);
 }
 
 .city-node-image {
@@ -498,19 +503,23 @@ h3 {
   width: 100%;
   height: 62px;
   margin-bottom: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 6px;
   object-fit: cover;
   background: #f8f1df;
 }
 
 .city-node.action-ready {
-  background: linear-gradient(180deg, #fff, #f7fffb);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--owner-color), #fff 58%), color-mix(in srgb, var(--owner-color), #fff 82%)),
+    #fff;
 }
 
 .city-node.action-partial {
   border-color: var(--gold);
   background:
-    linear-gradient(180deg, rgba(184, 134, 11, 0.13), rgba(255, 255, 255, 0.94)),
+    linear-gradient(180deg, rgba(184, 134, 11, 0.2), rgba(255, 255, 255, 0.72)),
+    linear-gradient(180deg, color-mix(in srgb, var(--owner-color), #fff 54%), color-mix(in srgb, var(--owner-color), #fff 82%)),
     #fff;
 }
 
@@ -1120,6 +1129,32 @@ h3 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.mode-selector {
+  display: grid;
+  grid-template-columns: minmax(0, 0.4fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.mode-selector label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.mode-selector select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
 }
 
 .command-quota {
