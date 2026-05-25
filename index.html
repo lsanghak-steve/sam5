@@ -79,6 +79,7 @@
               <h2 id="cityName">도시 정보</h2>
               <span id="ownerBadge" class="badge">-</span>
             </div>
+            <div id="cityVisual" class="city-visual"></div>
             <div id="cityStats" class="stats-grid"></div>
             <div class="resource-editor">
               <h3>도시 정보 직접 수정</h3>
@@ -104,6 +105,7 @@
             </div>
             <div class="reward-panel">
               <h3>포상</h3>
+              <p id="rewardInfo">장수에게 금을 내려 충성도를 올립니다.</p>
               <div class="reward-grid">
                 <label>
                   장수
@@ -114,7 +116,10 @@
                   <input id="rewardAmount" type="number" min="10" step="10" value="100" />
                 </label>
               </div>
-              <button id="rewardButton" class="primary-button" type="button">포상</button>
+              <div class="troop-action-grid">
+                <button id="rewardButton" class="primary-button" type="button">포상</button>
+                <button id="rewardAllButton" class="ghost-button" type="button">전체 포상</button>
+              </div>
             </div>
             <div class="troop-assign-panel">
               <h3>병력 배분</h3>
@@ -153,6 +158,17 @@
               <h3>인재 탐색</h3>
               <p id="scoutInfo">재야 장수를 찾습니다.</p>
               <button id="scoutButton" class="primary-button" type="button">탐색</button>
+            </div>
+            <div class="recruit-panel">
+              <h3>인재 등용</h3>
+              <p id="recruitInfo">다른 군주의 장수를 데려옵니다.</p>
+              <div class="reward-grid">
+                <label class="editor-wide">
+                  대상 장수
+                  <select id="recruitOfficer"></select>
+                </label>
+              </div>
+              <button id="recruitButton" class="primary-button" type="button">등용 시도</button>
             </div>
             <div class="officer-list">
               <h3>소속 장수</h3>

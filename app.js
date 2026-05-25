@@ -5,8 +5,10 @@ const SAVE_SLOT_COUNT = 5;
 const PROGRESS_DURATION_MS = 1100;
 const PROGRESS_CLEAR_MS = 900;
 const SCOUT_COST = 120;
+const RECRUIT_BASE_COST = 160;
 const MIN_CITY_COMMAND_LIMIT = 1;
 const MAX_CITY_COMMAND_LIMIT = 4;
+const CITY_IMAGE_BASE = "assets/cities";
 
 const scenario = {
   year: 190,
@@ -407,6 +409,7 @@ const els = {
   routeLines: document.querySelector("#routeLines"),
   cityName: document.querySelector("#cityName"),
   ownerBadge: document.querySelector("#ownerBadge"),
+  cityVisual: document.querySelector("#cityVisual"),
   cityStats: document.querySelector("#cityStats"),
   cityNameInput: document.querySelector("#cityNameInput"),
   goldInput: document.querySelector("#goldInput"),
@@ -415,7 +418,9 @@ const els = {
   applyResourceButton: document.querySelector("#applyResourceButton"),
   rewardOfficer: document.querySelector("#rewardOfficer"),
   rewardAmount: document.querySelector("#rewardAmount"),
+  rewardInfo: document.querySelector("#rewardInfo"),
   rewardButton: document.querySelector("#rewardButton"),
+  rewardAllButton: document.querySelector("#rewardAllButton"),
   troopAssignInfo: document.querySelector("#troopAssignInfo"),
   troopOfficer: document.querySelector("#troopOfficer"),
   troopAmount: document.querySelector("#troopAmount"),
@@ -427,6 +432,9 @@ const els = {
   moveOfficerButton: document.querySelector("#moveOfficerButton"),
   scoutInfo: document.querySelector("#scoutInfo"),
   scoutButton: document.querySelector("#scoutButton"),
+  recruitInfo: document.querySelector("#recruitInfo"),
+  recruitOfficer: document.querySelector("#recruitOfficer"),
+  recruitButton: document.querySelector("#recruitButton"),
   officerList: document.querySelector("#officerList"),
   commandQuota: document.querySelector("#commandQuota"),
   commandButtons: document.querySelector("#commandButtons"),
@@ -461,7 +469,7 @@ function createInitialState() {
     cityActionCounts: {},
     isGameOver: false,
     factions: structuredClone(scenario.factions),
-    cities: structuredClone(scenario.cities),
+    cities: withCityImages(structuredClone(scenario.cities)),
     officers: withOfficerTroops(structuredClone(scenario.officers)),
     hiddenOfficers: structuredClone(scenario.hiddenOfficers),
     progress: createIdleProgress(),
@@ -528,10 +536,18 @@ function normalizeState(nextState) {
     ...nextState,
     actedCityIds: Array.isArray(nextState.actedCityIds) ? nextState.actedCityIds : [],
     cityActionCounts,
+    cities: withCityImages(Array.isArray(nextState.cities) ? nextState.cities : structuredClone(scenario.cities)),
     officers: withOfficerTroops(Array.isArray(nextState.officers) ? nextState.officers : structuredClone(scenario.officers)),
     hiddenOfficers: Array.isArray(nextState.hiddenOfficers) ? nextState.hiddenOfficers : structuredClone(scenario.hiddenOfficers),
     progress: createIdleProgress(),
   };
+}
+
+function withCityImages(cities) {
+  return cities.map((city) => ({
+    ...city,
+    image: city.image ?? getDefaultCityImage(city.id),
+  }));
 }
 
 function withOfficerTroops(officers) {
@@ -658,10 +674,11 @@ function renderCities() {
     button.className = `city-node ${city.id === state.selectedCityId ? "selected" : ""} ${isPlayerCity ? "player-city" : "enemy-city"} ${actionStatus.className}`;
     button.type = "button";
     button.disabled = isProcessing();
-    button.style.left = `calc(${city.x}% - 56px)`;
-    button.style.top = `calc(${city.y}% - 38px)`;
+    button.style.left = `calc(${city.x}% - 58px)`;
+    button.style.top = `calc(${city.y}% - 62px)`;
     button.style.borderColor = faction.color;
     button.innerHTML = `
+      <img class="city-node-image" src="${escapeAttribute(getCityImage(city))}" alt="" loading="lazy" />
       <span class="city-name">${city.name}</span>
       <span class="city-meta">${faction.name}<br>병력 ${city.troops} / 훈련 ${city.training}</span>
       ${actionStatus.label ? `<span class="city-action-badge">${actionStatus.label}</span>` : ""}
@@ -767,6 +784,13 @@ function renderCityPanel(city, owner) {
   els.ownerBadge.textContent = owner.name;
   els.ownerBadge.style.borderColor = owner.color;
   els.ownerBadge.style.color = owner.color;
+  els.cityVisual.innerHTML = `
+    <img src="${escapeAttribute(getCityImage(city))}" alt="${escapeAttribute(city.name)} 성 이미지" />
+    <div>
+      <strong>${city.name}</strong>
+      <span>${owner.name} 세력의 거점</span>
+    </div>
+  `;
   els.cityStats.innerHTML = getCityStatFields(city, faction)
     .map((field) => renderCityStatInput(field, disabled))
     .join("");
@@ -776,6 +800,7 @@ function renderCityPanel(city, owner) {
   renderTroopAssignPanel(city, officers);
   renderOfficerMovePanel(city, officers);
   renderScoutPanel(city, officers);
+  renderRecruitPanel(city, officers);
   els.officerList.innerHTML = officers.length
     ? officers.map(renderOfficerCard).join("")
     : `<p class="empty">소속 장수가 없습니다.</p>`;
@@ -830,9 +855,15 @@ function renderRewardPanel(city, officers) {
   if (!els.rewardAmount.value) {
     els.rewardAmount.value = 100;
   }
+  const amount = readPositiveInteger(els.rewardAmount.value, 100);
+  const rewardableCount = officers.filter((officer) => officer.loyalty < 100).length;
+  const allCost = amount * rewardableCount;
+  const ownerText = playerFaction && city.ownerFactionId === playerFaction.id ? `전체 포상 대상 ${rewardableCount}명 · 필요 금 ${allCost}` : "플레이어 도시에서만 포상할 수 있습니다.";
+  els.rewardInfo.textContent = `${ownerText} · 보유 금 ${getFaction(city.ownerFactionId).gold}`;
   els.rewardOfficer.disabled = !canReward;
   els.rewardAmount.disabled = !canReward;
   els.rewardButton.disabled = !canReward;
+  els.rewardAllButton.disabled = !canReward || rewardableCount === 0;
 }
 
 function renderTroopAssignPanel(city, officers) {
@@ -911,6 +942,38 @@ function renderScoutPanel(city, officers) {
   const ownerText = playerFaction && city.ownerFactionId === playerFaction.id ? `성공률 약 ${chance}%` : "플레이어 도시에서만 탐색할 수 있습니다.";
   els.scoutInfo.textContent = `비용 금 ${SCOUT_COST} · ${remainingText} · ${ownerText} · 보유 금 ${faction.gold}`;
   els.scoutButton.disabled = !canScout;
+}
+
+function renderRecruitPanel(city, officers) {
+  const playerFaction = getPlayerFaction();
+  const previousOfficerId = els.recruitOfficer.value;
+  const targets = getRecruitableOfficers(playerFaction);
+  const canRecruit = playerFaction && city.ownerFactionId === playerFaction.id && targets.length > 0 && !state.isGameOver && !isProcessing();
+  els.recruitOfficer.innerHTML = targets.length
+    ? targets
+        .map((officer) => {
+          const faction = getFaction(officer.factionId);
+          const officerCity = getCity(officer.cityId);
+          return `<option value="${officer.id}">${officer.name} / ${faction.name} / ${officerCity?.name ?? "소재 불명"} / 충성 ${officer.loyalty}</option>`;
+        })
+        .join("")
+    : `<option value="">등용할 타 세력 장수 없음</option>`;
+  if (targets.some((officer) => officer.id === previousOfficerId)) {
+    els.recruitOfficer.value = previousOfficerId;
+  }
+
+  const selectedOfficer = targets.find((officer) => officer.id === els.recruitOfficer.value) ?? targets[0];
+  if (selectedOfficer && playerFaction) {
+    const cost = getRecruitCost(selectedOfficer);
+    const chance = getRecruitChance(selectedOfficer, officers);
+    const faction = getFaction(selectedOfficer.factionId);
+    els.recruitInfo.textContent = `대상 ${selectedOfficer.name}(${faction.name}) · 비용 금 ${cost} · 성공률 약 ${chance}% · 보유 금 ${playerFaction.gold}`;
+  } else {
+    const ownerText = playerFaction && city.ownerFactionId === playerFaction.id ? "등용할 타 세력 장수가 없습니다." : "플레이어 도시에서만 등용할 수 있습니다.";
+    els.recruitInfo.textContent = ownerText;
+  }
+  els.recruitOfficer.disabled = !canRecruit;
+  els.recruitButton.disabled = !canRecruit;
 }
 
 function renderOfficerCard(officer) {
@@ -1330,6 +1393,31 @@ function cityOfficers(city) {
   return state.officers.filter((officer) => officer.cityId === city.id && officer.factionId === city.ownerFactionId);
 }
 
+function getRecruitableOfficers(playerFaction) {
+  if (!playerFaction) return [];
+  return state.officers
+    .filter((officer) => officer.factionId !== playerFaction.id)
+    .filter((officer) => !isRulerOfficer(officer))
+    .sort((a, b) => getRecruitCost(a) - getRecruitCost(b));
+}
+
+function isRulerOfficer(officer) {
+  return state.factions.some((faction) => faction.rulerId === officer.id);
+}
+
+function getOfficerTalent(officer) {
+  return Math.round((officer.leadership + officer.war + officer.intelligence + officer.politics + officer.charm) / 5);
+}
+
+function getRecruitCost(officer) {
+  return RECRUIT_BASE_COST + officer.loyalty * 3 + getOfficerTalent(officer);
+}
+
+function getRecruitChance(officer, localOfficers) {
+  const bestCharm = localOfficers.reduce((best, item) => Math.max(best, item.charm), 45);
+  return clamp(Math.round(30 + (100 - officer.loyalty) * 0.55 + bestCharm * 0.25), 12, 85);
+}
+
 function getCityActionCount(cityId) {
   return state.cityActionCounts?.[cityId] ?? 0;
 }
@@ -1425,6 +1513,14 @@ function clampOfficerTroopsForCity(city) {
 
 function getCity(cityId) {
   return state.cities.find((city) => city.id === cityId);
+}
+
+function getDefaultCityImage(cityId) {
+  return `${CITY_IMAGE_BASE}/${cityId}.png`;
+}
+
+function getCityImage(city) {
+  return city.image || getDefaultCityImage(city.id);
 }
 
 function getFaction(factionId) {
@@ -1732,6 +1828,89 @@ function rewardOfficer() {
   render();
 }
 
+function rewardAllOfficers() {
+  if (isProcessing()) return;
+  const city = getCity(state.selectedCityId);
+  const playerFaction = getPlayerFaction();
+  if (!city || !playerFaction) return;
+  const officers = cityOfficers(city);
+  if (city.ownerFactionId !== playerFaction.id || officers.length === 0) {
+    addLog("전체 포상은 플레이어 도시의 소속 장수에게만 줄 수 있습니다.");
+    render();
+    return;
+  }
+
+  const amount = readPositiveInteger(els.rewardAmount.value, 100);
+  const rewardTargets = officers.filter((officer) => officer.loyalty < 100);
+  if (rewardTargets.length === 0) {
+    addLog(`${city.name}의 모든 장수 충성도가 이미 100입니다.`);
+    render();
+    return;
+  }
+
+  const totalCost = amount * rewardTargets.length;
+  const faction = getFaction(playerFaction.id);
+  if (!spend(faction, totalCost, 0)) {
+    render();
+    return;
+  }
+
+  const gain = Math.max(1, Math.ceil(amount / 10));
+  const summary = rewardTargets
+    .map((officer) => {
+      const before = officer.loyalty;
+      officer.loyalty = clamp(officer.loyalty + gain, 0, 100);
+      return `${officer.name} ${before}->${officer.loyalty}`;
+    })
+    .join(", ");
+  addLog(`${city.name}의 장수 ${rewardTargets.length}명에게 금 ${totalCost}을 전체 포상했습니다. ${summary}`);
+  render();
+}
+
+function recruitForeignOfficer() {
+  if (isProcessing()) return;
+  const city = getCity(state.selectedCityId);
+  const playerFaction = getPlayerFaction();
+  const officer = state.officers.find((item) => item.id === els.recruitOfficer.value);
+  if (!city || !playerFaction || !officer) return;
+  if (city.ownerFactionId !== playerFaction.id) {
+    addLog("타 세력 장수 등용은 플레이어가 소유한 도시에서만 할 수 있습니다.");
+    render();
+    return;
+  }
+  if (officer.factionId === playerFaction.id || isRulerOfficer(officer)) {
+    addLog("선택한 장수는 등용 대상이 아닙니다.");
+    render();
+    return;
+  }
+
+  const fromFaction = getFaction(officer.factionId);
+  const fromCity = getCity(officer.cityId);
+  const cost = getRecruitCost(officer);
+  const chance = getRecruitChance(officer, cityOfficers(city));
+  if (!spend(playerFaction, cost, 0)) {
+    render();
+    return;
+  }
+
+  if (Math.random() * 100 >= chance) {
+    const loyaltyLoss = Math.max(1, Math.floor((100 - officer.loyalty) / 12));
+    officer.loyalty = clamp(officer.loyalty - loyaltyLoss, 25, 100);
+    addLog(`${city.name}에서 ${fromFaction.name}의 ${officer.name} 등용을 시도했지만 실패했습니다. 충성도가 흔들려 ${officer.loyalty}가 되었습니다.`);
+    render();
+    return;
+  }
+
+  const releasedTroops = officer.troops ?? 0;
+  officer.factionId = playerFaction.id;
+  officer.cityId = city.id;
+  officer.troops = 0;
+  officer.loyalty = clamp(65 + Math.floor((100 - officer.loyalty) / 3), 55, 95);
+  if (fromCity) clampOfficerTroopsForCity(fromCity);
+  addLog(`${fromFaction.name}의 ${officer.name}을 ${city.name}으로 등용했습니다. 담당 병력 ${releasedTroops}은 원래 도시 ${fromCity?.name ?? "소재지"}에 남았습니다.`);
+  render();
+}
+
 function scoutOfficer() {
   if (isProcessing()) return;
   const city = getCity(state.selectedCityId);
@@ -1826,7 +2005,7 @@ function newGame() {
     cityActionCounts: {},
     isGameOver: false,
     factions: structuredClone(scenario.factions),
-    cities: structuredClone(scenario.cities),
+    cities: withCityImages(structuredClone(scenario.cities)),
     officers: withOfficerTroops(structuredClone(scenario.officers)),
     hiddenOfficers: structuredClone(scenario.hiddenOfficers),
     progress: createIdleProgress(),
@@ -1886,7 +2065,19 @@ els.troopOfficer.addEventListener("change", () => {
   els.troopAmount.value = officer ? officer.troops ?? 0 : 0;
 });
 els.rewardButton.addEventListener("click", rewardOfficer);
+els.rewardAllButton.addEventListener("click", rewardAllOfficers);
+els.rewardAmount.addEventListener("input", () => {
+  const city = getCity(state.selectedCityId);
+  if (!city) return;
+  renderRewardPanel(city, cityOfficers(city));
+});
 els.scoutButton.addEventListener("click", scoutOfficer);
+els.recruitOfficer.addEventListener("change", () => {
+  const city = getCity(state.selectedCityId);
+  if (!city) return;
+  renderRecruitPanel(city, cityOfficers(city));
+});
+els.recruitButton.addEventListener("click", recruitForeignOfficer);
 els.newGameButton.addEventListener("click", newGame);
 
 render();
