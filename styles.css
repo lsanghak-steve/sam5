@@ -303,7 +303,8 @@ h3 {
 
 .story-timeline li {
   display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
+  grid-template-columns: 132px minmax(0, 1fr) auto;
+  align-items: center;
   gap: 12px;
   padding: 12px;
   border: 1px solid var(--line);
@@ -313,6 +314,12 @@ h3 {
 
 .story-timeline strong {
   color: var(--ink);
+}
+
+.story-start-button {
+  min-height: 34px;
+  padding: 0 10px;
+  white-space: nowrap;
 }
 
 .story-play-note {

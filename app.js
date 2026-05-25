@@ -726,6 +726,176 @@ const commands = [
   },
 ];
 
+const storyScenarioPresets = {
+  "dong-zhuo": {
+    title: "동탁의 전횡",
+    year: 190,
+    month: 1,
+    factionId: "dong",
+    selectedCityId: "luoyang",
+    cityOwners: {
+      luoyang: "dong",
+      changan: "dong",
+      hongnong: "dong",
+      xu: "cao",
+      shou: "liu",
+      jianye: "sun",
+      ye: "yuan",
+      tianshui: "ma",
+      xiangyang: "biao",
+      jiaozhi: "shi",
+    },
+    log: "동탁의 전횡 시나리오가 시작되었습니다. 낙양을 장악한 동탁으로 천하를 제압하세요.",
+  },
+  warlords: {
+    title: "군웅할거",
+    year: 194,
+    month: 1,
+    factionId: "cao",
+    selectedCityId: "xu",
+    cityOwners: {
+      xu: "cao",
+      xia: "cao",
+      chenliu: "cao",
+      qiao: "cao",
+      shou: "liu",
+      jing: "liu",
+      jianye: "sun",
+      kuaiji: "sun",
+      ye: "yuan",
+      bei: "yuan",
+      luoyang: "dong",
+      changan: "dong",
+    },
+    log: "군웅할거 시나리오가 시작되었습니다. 조조로 중원의 기반을 다지고 세력을 넓히세요.",
+  },
+  guandu: {
+    title: "관도대전",
+    year: 200,
+    month: 2,
+    factionId: "cao",
+    selectedCityId: "xu",
+    cityOwners: {
+      xu: "cao",
+      xia: "cao",
+      chenliu: "cao",
+      qiao: "cao",
+      runan: "cao",
+      langye: "cao",
+      luoyang: "cao",
+      ye: "yuan",
+      bei: "yuan",
+      nanpi: "yuan",
+      pingyuan: "yuan",
+      shou: "liu",
+      jing: "liu",
+      jianye: "sun",
+    },
+    log: "관도대전 시나리오가 시작되었습니다. 조조로 원소와 북방 패권을 겨루세요.",
+  },
+  "red-cliffs": {
+    title: "적벽대전",
+    year: 208,
+    month: 7,
+    factionId: "sun",
+    selectedCityId: "jianye",
+    cityOwners: {
+      xu: "cao",
+      ye: "cao",
+      bei: "cao",
+      xia: "cao",
+      luoyang: "cao",
+      changan: "cao",
+      chenliu: "cao",
+      qiao: "cao",
+      runan: "cao",
+      langye: "cao",
+      nanpi: "cao",
+      pingyuan: "cao",
+      shou: "cao",
+      jing: "liu",
+      hanzhong: "liu",
+      chengdu: "liu",
+      ba: "liu",
+      jianye: "sun",
+      kuaiji: "sun",
+      yuzhang: "sun",
+      luling: "sun",
+      wujun: "sun",
+    },
+    log: "적벽대전 시나리오가 시작되었습니다. 손권으로 강동을 지키고 조조의 남하를 막으세요.",
+  },
+  "three-kingdoms": {
+    title: "위·촉·오의 정립",
+    year: 221,
+    month: 4,
+    factionId: "liu",
+    selectedCityId: "chengdu",
+    cityOwners: {
+      xu: "cao",
+      ye: "cao",
+      bei: "cao",
+      xia: "cao",
+      luoyang: "cao",
+      changan: "cao",
+      chenliu: "cao",
+      qiao: "cao",
+      runan: "cao",
+      langye: "cao",
+      nanpi: "cao",
+      pingyuan: "cao",
+      hongnong: "cao",
+      jianye: "sun",
+      kuaiji: "sun",
+      yuzhang: "sun",
+      luling: "sun",
+      wujun: "sun",
+      chengdu: "liu",
+      hanzhong: "liu",
+      ba: "liu",
+      jing: "liu",
+      wuling: "liu",
+      lingling: "liu",
+    },
+    log: "위·촉·오 정립 시나리오가 시작되었습니다. 유비로 촉한의 북벌과 통일을 준비하세요.",
+  },
+  unification: {
+    title: "천하통일의 길",
+    year: 263,
+    month: 1,
+    factionId: "cao",
+    selectedCityId: "luoyang",
+    cityOwners: {
+      xu: "cao",
+      ye: "cao",
+      bei: "cao",
+      xia: "cao",
+      luoyang: "cao",
+      changan: "cao",
+      tianshui: "cao",
+      hanzhong: "cao",
+      chenliu: "cao",
+      qiao: "cao",
+      runan: "cao",
+      langye: "cao",
+      hongnong: "cao",
+      anding: "cao",
+      wuwei: "cao",
+      xiliang: "cao",
+      nanpi: "cao",
+      pingyuan: "cao",
+      chengdu: "liu",
+      ba: "liu",
+      jianye: "sun",
+      kuaiji: "sun",
+      yuzhang: "sun",
+      luling: "sun",
+      wujun: "sun",
+    },
+    log: "천하통일의 길 시나리오가 시작되었습니다. 조조 세력으로 남은 촉과 오를 압박해 통일을 이루세요.",
+  },
+};
+
 let state = createInitialState();
 let autoProgressActive = false;
 let autoProgressTimer = null;
@@ -847,22 +1017,35 @@ function createInitialState() {
     return savedState;
   }
 
+  return createScenarioState();
+}
+
+function createScenarioState(preset = {}) {
+  const cities = withCityImages(structuredClone(scenario.cities));
+  if (preset.cityOwners) {
+    cities.forEach((city) => {
+      if (preset.cityOwners[city.id]) {
+        city.ownerFactionId = preset.cityOwners[city.id];
+      }
+    });
+  }
+
   return {
-    year: scenario.year,
-    month: scenario.month,
-    selectedFactionId: null,
-    selectedCityId: "shou",
+    year: preset.year ?? scenario.year,
+    month: preset.month ?? scenario.month,
+    selectedFactionId: preset.factionId ?? null,
+    selectedCityId: preset.selectedCityId ?? "shou",
     actedCityIds: [],
     cityActionCounts: {},
     isGameOver: false,
     factions: structuredClone(scenario.factions),
-    cities: withCityImages(structuredClone(scenario.cities)),
+    cities,
     officers: withOfficerTroops(structuredClone(scenario.officers)),
     hiddenOfficers: structuredClone(scenario.hiddenOfficers),
     progress: createIdleProgress(),
     battleAnimation: null,
     victoryPopupDismissed: false,
-    log: ["새 시나리오가 시작되었습니다. 플레이할 세력을 선택하세요."],
+    log: [preset.log ?? "새 시나리오가 시작되었습니다. 플레이할 세력을 선택하세요."],
   };
 }
 
@@ -1074,6 +1257,18 @@ function openStoryModal() {
 
 function closeStoryModal() {
   els.storyModal.classList.add("hidden");
+}
+
+function startStoryScenario(storyId) {
+  if (isProcessing()) return;
+  const preset = storyScenarioPresets[storyId];
+  if (!preset) return;
+  stopAllAutomation();
+  state = createScenarioState(preset);
+  closeStoryModal();
+  addLog(`${preset.title} 이야기를 선택했습니다. 지도와 군주 구성이 적용되었습니다.`);
+  render();
+  resetMapPosition();
 }
 
 function toggleOfficerList() {
@@ -1867,7 +2062,7 @@ function toggleAutoProgress() {
     stopAutoDomestic("자동 내정을 중지하고 자동 진행을 시작합니다.");
   }
   autoProgressActive = true;
-  addLog("자동 진행을 시작했습니다. 전투를 제외한 내정 명령을 자동으로 수행합니다.");
+  addLog("자동 진행을 시작했습니다. 모든 보유 성의 개발, 상업, 치안, 훈련을 100으로 만든 뒤 가까운 적 성을 공격합니다.");
   render();
   scheduleAutoProgressStep(120);
 }
@@ -1901,37 +2096,80 @@ function runAutoProgressStep() {
     return;
   }
 
-  const nextCity = state.cities.find((city) => city.ownerFactionId === playerFaction.id && canCityAct(city.id));
-  if (!nextCity) {
+  const playerCities = getFactionCities(playerFaction.id);
+  const domesticPlan = getAutoProgressDomesticPlan(playerCities, playerFaction);
+  if (domesticPlan) {
+    state.selectedCityId = domesticPlan.city.id;
+    render();
+    executeCommand(domesticPlan.command.id);
+    return;
+  }
+
+  if (!isAutoProgressReadyForWar(playerCities)) {
     endTurn();
     return;
   }
 
-  const command = getAutoProgressCommand(nextCity, playerFaction);
-  if (!command) {
-    markCityAction(nextCity.id);
-    addLog(`${nextCity.name}은 자동 진행할 내정 명령이 없어 명령 기회를 넘겼습니다.`);
-    render();
-    scheduleAutoProgressStep();
+  if (!playerCities.some((city) => canCityAct(city.id))) {
+    endTurn();
     return;
   }
 
-  state.selectedCityId = nextCity.id;
+  const battlePlan = getAutoProgressBattlePlan(playerCities);
+  if (!battlePlan) {
+    stopAutoProgress("자동 진행할 인접 적 성이 없습니다. 모든 성을 점령했거나 공격 경로가 없습니다.");
+    return;
+  }
+
+  state.selectedCityId = battlePlan.fromCity.id;
   render();
-  executeCommand(command.id);
+  runBattleProgress(battlePlan.fromCity, battlePlan.toCity);
 }
 
 function getAutoProgressCommand(city, faction) {
-  const priorities = [
-    { id: "develop", canUse: () => city.development < 85 && canAfford(faction, 70, 0) },
-    { id: "commerce", canUse: () => city.commerce < 85 && canAfford(faction, 60, 0) },
-    { id: "order", canUse: () => city.order < 85 && canAfford(faction, 45, 0) },
-    { id: "train", canUse: () => city.training < 85 && canAfford(faction, 35, 45) },
-    { id: "recruit", canUse: () => city.population > 150 && canAfford(faction, 55, 90) },
-    { id: "search", canUse: () => true },
-  ];
-  const selected = priorities.find((item) => item.canUse());
+  const candidates = [
+    { id: "develop", value: city.development, canUse: () => city.development < 100 && canAfford(faction, 70, 0) },
+    { id: "commerce", value: city.commerce, canUse: () => city.commerce < 100 && canAfford(faction, 60, 0) },
+    { id: "order", value: city.order, canUse: () => city.order < 100 && canAfford(faction, 45, 0) },
+    { id: "train", value: city.training, canUse: () => city.training < 100 && canAfford(faction, 35, 45) },
+  ]
+    .filter((item) => item.canUse())
+    .sort((a, b) => a.value - b.value);
+  const selected = candidates[0];
   return selected ? commands.find((command) => command.id === selected.id) : null;
+}
+
+function getAutoProgressDomesticPlan(cities, faction) {
+  return cities
+    .filter((city) => canCityAct(city.id))
+    .map((city) => ({ city, command: getAutoProgressCommand(city, faction) }))
+    .find((plan) => plan.command) ?? null;
+}
+
+function isAutoProgressReadyForWar(cities) {
+  return cities.every((city) => city.development >= 100 && city.commerce >= 100 && city.order >= 100 && city.training >= 100);
+}
+
+function getAutoProgressBattlePlan(cities) {
+  const plans = [];
+  cities
+    .filter((city) => canCityAct(city.id))
+    .forEach((fromCity) => {
+      getAttackTargets(fromCity).forEach((toCity) => {
+        plans.push({
+          fromCity,
+          toCity,
+          distance: getCityDistance(fromCity, toCity),
+        });
+      });
+    });
+  return plans.sort((a, b) => a.distance - b.distance)[0] ?? null;
+}
+
+function getCityDistance(fromCity, toCity) {
+  const dx = toCity.x - fromCity.x;
+  const dy = toCity.y - fromCity.y;
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 function canAfford(faction, gold, food) {
@@ -3033,8 +3271,7 @@ function readPositiveInteger(value, fallback) {
   return Math.max(1, parsed);
 }
 
-function newGame() {
-  if (isProcessing()) return;
+function stopAllAutomation() {
   if (autoProgressActive) {
     stopAutoProgress();
   }
@@ -3047,22 +3284,12 @@ function newGame() {
   if (autoWarActive) {
     stopAutoWar();
   }
-  state = {
-    year: scenario.year,
-    month: scenario.month,
-    selectedFactionId: null,
-    selectedCityId: "shou",
-    actedCityIds: [],
-    cityActionCounts: {},
-    isGameOver: false,
-    factions: structuredClone(scenario.factions),
-    cities: withCityImages(structuredClone(scenario.cities)),
-    officers: withOfficerTroops(structuredClone(scenario.officers)),
-    hiddenOfficers: structuredClone(scenario.hiddenOfficers),
-    progress: createIdleProgress(),
-    battleAnimation: null,
-    log: ["새 시나리오가 시작되었습니다. 플레이할 세력을 선택하세요."],
-  };
+}
+
+function newGame() {
+  if (isProcessing()) return;
+  stopAllAutomation();
+  state = createScenarioState();
   render();
 }
 
@@ -3142,6 +3369,11 @@ els.recruitButton.addEventListener("click", recruitForeignOfficer);
 els.storyButton.addEventListener("click", openStoryModal);
 els.storyCloseButton.addEventListener("click", closeStoryModal);
 els.storyModal.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-story-id]");
+  if (button) {
+    startStoryScenario(button.dataset.storyId);
+    return;
+  }
   if (event.target === els.storyModal) closeStoryModal();
 });
 els.newGameButton.addEventListener("click", newGame);
