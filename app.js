@@ -936,8 +936,9 @@ const commands = [
     text: "농업과 인구 기반 상승",
     run(city, faction) {
       if (!spend(faction, 70, 0)) return false;
-      city.development = clamp(city.development + 7, 0, 100);
-      city.population += 18;
+      const gain = getOfficerBasedCommandGain(city, "develop");
+      city.development = clamp(city.development + gain, 0, 100);
+      city.population += 12 + gain;
       addLog(`${city.name}의 개발이 진행되어 개발도가 상승했습니다.`);
       return true;
     },
@@ -948,7 +949,8 @@ const commands = [
     text: "금 수입 기반 상승",
     run(city, faction) {
       if (!spend(faction, 60, 0)) return false;
-      city.commerce = clamp(city.commerce + 8, 0, 100);
+      const gain = getOfficerBasedCommandGain(city, "commerce");
+      city.commerce = clamp(city.commerce + gain, 0, 100);
       addLog(`${city.name}의 시장이 정비되어 상업이 상승했습니다.`);
       return true;
     },
@@ -959,7 +961,8 @@ const commands = [
     text: "민심과 수비 안정",
     run(city, faction) {
       if (!spend(faction, 45, 0)) return false;
-      city.order = clamp(city.order + 10, 0, 100);
+      const gain = getOfficerBasedCommandGain(city, "order");
+      city.order = clamp(city.order + gain, 0, 100);
       addLog(`${city.name}의 치안이 안정되었습니다.`);
       return true;
     },
@@ -984,7 +987,8 @@ const commands = [
     text: "전투력 상승",
     run(city, faction) {
       if (!spend(faction, 35, 45)) return false;
-      city.training = clamp(city.training + 9, 0, 100);
+      const gain = getOfficerBasedCommandGain(city, "train");
+      city.training = clamp(city.training + gain, 0, 100);
       addLog(`${city.name}의 병사들이 훈련을 마쳤습니다.`);
       return true;
     },
@@ -1009,6 +1013,34 @@ const commands = [
     },
   },
 ];
+
+function getOfficerBasedCommandGain(city, commandType) {
+  const officers = cityOfficers(city);
+  const profile = {
+    develop: { fields: ["politics", "intelligence"], base: 3, min: 4, max: 14 },
+    commerce: { fields: ["politics", "intelligence"], base: 4, min: 4, max: 15 },
+    order: { fields: ["charm", "politics"], base: 4, min: 5, max: 16 },
+    train: { fields: ["leadership", "war"], base: 4, min: 5, max: 16 },
+  }[commandType];
+
+  if (!profile || officers.length === 0) return profile?.min ?? 1;
+
+  const total = officers.reduce((sum, officer) => {
+    const fieldAverage = profile.fields.reduce((fieldSum, field) => fieldSum + (officer[field] ?? 0), 0) / profile.fields.length;
+    return sum + fieldAverage;
+  }, 0);
+  const average = total / officers.length;
+  const officerCountBonus = Math.min(4, Math.floor(officers.length / 3));
+  const talentBonus = Math.floor(average / 18);
+  return clamp(profile.base + talentBonus + officerCountBonus, profile.min, profile.max);
+}
+
+function getAiOfficerBasedCommandGain(city, commandType) {
+  const difficulty = getDifficultyConfig();
+  const baseGain = getOfficerBasedCommandGain(city, commandType);
+  const scale = commandType === "train" ? difficulty.aiTrainingGain / 5 : difficulty.aiDomesticGain / 4;
+  return clamp(Math.round(baseGain * scale), 1, 24);
+}
 
 const storyScenarioPresets = {
   "dong-zhuo": {
@@ -2976,11 +3008,14 @@ function runAiCityTurn(city, faction) {
 
   const choice = Math.random();
   if (choice < 0.28 && spend(faction, 35, 35, false)) {
-    city.training = clamp(city.training + difficulty.aiTrainingGain, 0, 100);
+    const gain = getAiOfficerBasedCommandGain(city, "train");
+    city.training = clamp(city.training + gain, 0, 100);
     addLog(`${withSubject(faction.name)} ${city.name}의 병사를 훈련했습니다.`);
   } else if (choice < 0.56 && spend(faction, 45, 0, false)) {
-    city.development = clamp(city.development + difficulty.aiDomesticGain, 0, 100);
-    city.commerce = clamp(city.commerce + Math.max(1, difficulty.aiDomesticGain - 1), 0, 100);
+    const developGain = getAiOfficerBasedCommandGain(city, "develop");
+    const commerceGain = getAiOfficerBasedCommandGain(city, "commerce");
+    city.development = clamp(city.development + developGain, 0, 100);
+    city.commerce = clamp(city.commerce + commerceGain, 0, 100);
     addLog(`${withSubject(faction.name)} ${city.name}의 내정을 정비했습니다.`);
   } else if (spend(faction, 30, 55, false)) {
     const gained = Math.round((18 + Math.floor(Math.random() * 20)) * difficulty.aiTroopGain);
