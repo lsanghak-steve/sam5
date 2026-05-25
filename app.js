@@ -4,11 +4,48 @@ const SELECTED_SAVE_SLOT_KEY = `${STORAGE_KEY}-selected-slot`;
 const SAVE_SLOT_COUNT = 5;
 const PROGRESS_DURATION_MS = 1100;
 const PROGRESS_CLEAR_MS = 900;
+const AUTO_PROGRESS_DELAY_MS = 260;
 const SCOUT_COST = 120;
 const RECRUIT_BASE_COST = 160;
 const MIN_CITY_COMMAND_LIMIT = 1;
 const MAX_CITY_COMMAND_LIMIT = 4;
 const CITY_IMAGE_BASE = "assets/cities";
+const MAP_VIEWPORT_RATIO = 1.28;
+const MAP_ZOOM_MIN = 0.75;
+const MAP_ZOOM_MAX = 1.6;
+const MAP_ZOOM_STEP = 0.15;
+
+function createHiddenOfficerPool() {
+  const featuredOfficers = [
+    { id: "sima-yi", name: "사마의", leadership: 94, war: 63, intelligence: 98, politics: 97, charm: 82, loyalty: 78 },
+    { id: "pang-tong", name: "방통", leadership: 88, war: 42, intelligence: 97, politics: 86, charm: 74, loyalty: 82 },
+    { id: "xu-shu", name: "서서", leadership: 82, war: 64, intelligence: 93, politics: 80, charm: 81, loyalty: 84 },
+    { id: "wei-yan", name: "위연", leadership: 84, war: 92, intelligence: 69, politics: 46, charm: 62, loyalty: 76 },
+    { id: "gan-ning", name: "감녕", leadership: 81, war: 94, intelligence: 68, politics: 43, charm: 75, loyalty: 74 },
+    { id: "lu-su", name: "노숙", leadership: 78, war: 46, intelligence: 91, politics: 93, charm: 88, loyalty: 86 },
+    { id: "fa-zheng", name: "법정", leadership: 80, war: 45, intelligence: 94, politics: 88, charm: 76, loyalty: 82 },
+    { id: "deng-ai", name: "등애", leadership: 91, war: 87, intelligence: 89, politics: 73, charm: 70, loyalty: 79 },
+    { id: "jiang-wei", name: "강유", leadership: 90, war: 89, intelligence: 90, politics: 76, charm: 83, loyalty: 85 },
+    { id: "zhang-liao", name: "장료", leadership: 93, war: 92, intelligence: 78, politics: 58, charm: 82, loyalty: 80 },
+  ];
+  const surnames = ["왕", "장", "조", "진", "한", "위", "마", "황", "전", "손", "노", "정", "유", "곽", "하", "심", "등", "양", "고", "문", "사", "서", "범", "종", "허", "방", "임", "오", "채", "반"];
+  const givenFirst = ["백", "중", "숙", "계", "문", "자", "공", "원", "덕", "현"];
+  const givenSecond = ["안", "평", "윤", "량", "겸", "휘", "진", "승", "연", "의", "보", "경", "휴", "온", "상"];
+  const generatedOfficers = Array.from({ length: 90 }, (_, index) => {
+    const seed = index + 1;
+    return {
+      id: `wild-${String(seed).padStart(3, "0")}`,
+      name: `${surnames[index % surnames.length]}${givenFirst[Math.floor(index / surnames.length) % givenFirst.length]}${givenSecond[(index * 7) % givenSecond.length]}`,
+      leadership: 52 + ((seed * 17) % 43),
+      war: 40 + ((seed * 23) % 56),
+      intelligence: 42 + ((seed * 19) % 54),
+      politics: 36 + ((seed * 29) % 58),
+      charm: 45 + ((seed * 13) % 50),
+      loyalty: 62 + ((seed * 11) % 28),
+    };
+  });
+  return [...featuredOfficers, ...generatedOfficers];
+}
 
 const scenario = {
   year: 190,
@@ -36,7 +73,7 @@ const scenario = {
       training: 64,
       x: 48,
       y: 42,
-      adjacentCityIds: ["ye", "xia", "shou", "luoyang"],
+      adjacentCityIds: ["ye", "xia", "shou", "luoyang", "chenliu", "qiao", "runan"],
     },
     {
       id: "ye",
@@ -50,7 +87,7 @@ const scenario = {
       training: 56,
       x: 42,
       y: 18,
-      adjacentCityIds: ["xu", "bei", "luoyang"],
+      adjacentCityIds: ["xu", "bei", "luoyang", "nanpi", "pingyuan", "chenliu"],
     },
     {
       id: "bei",
@@ -64,7 +101,7 @@ const scenario = {
       training: 50,
       x: 70,
       y: 13,
-      adjacentCityIds: ["ye", "xia"],
+      adjacentCityIds: ["ye", "xia", "nanpi", "pingyuan", "langye"],
     },
     {
       id: "xia",
@@ -78,7 +115,7 @@ const scenario = {
       training: 58,
       x: 67,
       y: 45,
-      adjacentCityIds: ["xu", "bei", "jianye"],
+      adjacentCityIds: ["xu", "bei", "jianye", "langye"],
     },
     {
       id: "shou",
@@ -92,7 +129,7 @@ const scenario = {
       training: 60,
       x: 43,
       y: 62,
-      adjacentCityIds: ["xu", "jing", "jianye", "xiangyang"],
+      adjacentCityIds: ["xu", "jing", "jianye", "xiangyang", "qiao", "runan", "xinye", "jiangxia"],
     },
     {
       id: "jing",
@@ -106,7 +143,7 @@ const scenario = {
       training: 62,
       x: 28,
       y: 74,
-      adjacentCityIds: ["shou", "chengdu", "jianye", "xiangyang", "wuling"],
+      adjacentCityIds: ["shou", "chengdu", "jianye", "xiangyang", "wuling", "ba", "jiangxia"],
     },
     {
       id: "chengdu",
@@ -120,7 +157,7 @@ const scenario = {
       training: 57,
       x: 10,
       y: 58,
-      adjacentCityIds: ["jing", "hanzhong"],
+      adjacentCityIds: ["jing", "hanzhong", "ba"],
     },
     {
       id: "jianye",
@@ -134,7 +171,7 @@ const scenario = {
       training: 63,
       x: 75,
       y: 72,
-      adjacentCityIds: ["xia", "shou", "jing", "kuaiji"],
+      adjacentCityIds: ["xia", "shou", "jing", "kuaiji", "yuzhang", "wujun"],
     },
     {
       id: "luoyang",
@@ -148,7 +185,7 @@ const scenario = {
       training: 54,
       x: 34,
       y: 39,
-      adjacentCityIds: ["changan", "ye", "xu", "xiangyang"],
+      adjacentCityIds: ["changan", "ye", "xu", "xiangyang", "hongnong", "xinye", "chenliu"],
     },
     {
       id: "changan",
@@ -162,7 +199,7 @@ const scenario = {
       training: 52,
       x: 21,
       y: 38,
-      adjacentCityIds: ["tianshui", "hanzhong", "luoyang"],
+      adjacentCityIds: ["tianshui", "hanzhong", "luoyang", "hongnong", "anding"],
     },
     {
       id: "tianshui",
@@ -176,7 +213,7 @@ const scenario = {
       training: 58,
       x: 9,
       y: 24,
-      adjacentCityIds: ["changan", "hanzhong"],
+      adjacentCityIds: ["changan", "hanzhong", "anding", "wuwei", "xiliang"],
     },
     {
       id: "hanzhong",
@@ -190,7 +227,7 @@ const scenario = {
       training: 56,
       x: 15,
       y: 53,
-      adjacentCityIds: ["changan", "tianshui", "chengdu", "xiangyang"],
+      adjacentCityIds: ["changan", "tianshui", "chengdu", "xiangyang", "hongnong", "ba"],
     },
     {
       id: "xiangyang",
@@ -204,7 +241,7 @@ const scenario = {
       training: 55,
       x: 32,
       y: 59,
-      adjacentCityIds: ["luoyang", "shou", "jing", "hanzhong", "wuling"],
+      adjacentCityIds: ["luoyang", "shou", "jing", "hanzhong", "wuling", "xinye", "jiangxia"],
     },
     {
       id: "wuling",
@@ -218,7 +255,7 @@ const scenario = {
       training: 47,
       x: 29,
       y: 80,
-      adjacentCityIds: ["jing", "xiangyang", "lingling"],
+      adjacentCityIds: ["jing", "xiangyang", "lingling", "changsha", "ba"],
     },
     {
       id: "lingling",
@@ -232,7 +269,7 @@ const scenario = {
       training: 45,
       x: 43,
       y: 87,
-      adjacentCityIds: ["wuling", "jiaozhi"],
+      adjacentCityIds: ["wuling", "jiaozhi", "changsha", "guiyang", "cangwu"],
     },
     {
       id: "kuaiji",
@@ -246,7 +283,7 @@ const scenario = {
       training: 56,
       x: 88,
       y: 83,
-      adjacentCityIds: ["jianye", "jiaozhi"],
+      adjacentCityIds: ["jianye", "jiaozhi", "wujun", "luling"],
     },
     {
       id: "jiaozhi",
@@ -260,7 +297,307 @@ const scenario = {
       training: 43,
       x: 61,
       y: 90,
-      adjacentCityIds: ["lingling", "kuaiji"],
+      adjacentCityIds: ["lingling", "kuaiji", "cangwu", "nanhai", "luling"],
+    },
+    {
+      id: "nanpi",
+      name: "남피",
+      ownerFactionId: "yuan",
+      population: 430,
+      development: 50,
+      commerce: 44,
+      order: 62,
+      troops: 150,
+      training: 52,
+      x: 55,
+      y: 14,
+      image: "assets/cities/ye.png",
+      adjacentCityIds: ["ye", "pingyuan", "bei"],
+    },
+    {
+      id: "pingyuan",
+      name: "평원",
+      ownerFactionId: "yuan",
+      population: 370,
+      development: 44,
+      commerce: 40,
+      order: 60,
+      troops: 118,
+      training: 49,
+      x: 58,
+      y: 24,
+      image: "assets/cities/bei.png",
+      adjacentCityIds: ["nanpi", "ye", "bei"],
+    },
+    {
+      id: "chenliu",
+      name: "진류",
+      ownerFactionId: "cao",
+      population: 500,
+      development: 57,
+      commerce: 63,
+      order: 70,
+      troops: 160,
+      training: 58,
+      x: 54,
+      y: 34,
+      image: "assets/cities/xu.png",
+      adjacentCityIds: ["xu", "ye", "luoyang", "langye", "qiao"],
+    },
+    {
+      id: "qiao",
+      name: "초",
+      ownerFactionId: "cao",
+      population: 390,
+      development: 47,
+      commerce: 49,
+      order: 64,
+      troops: 132,
+      training: 54,
+      x: 56,
+      y: 52,
+      image: "assets/cities/shou.png",
+      adjacentCityIds: ["xu", "shou", "runan", "chenliu"],
+    },
+    {
+      id: "runan",
+      name: "여남",
+      ownerFactionId: "cao",
+      population: 440,
+      development: 51,
+      commerce: 48,
+      order: 63,
+      troops: 140,
+      training: 52,
+      x: 47,
+      y: 55,
+      image: "assets/cities/shou.png",
+      adjacentCityIds: ["xu", "shou", "qiao", "xinye"],
+    },
+    {
+      id: "langye",
+      name: "낭야",
+      ownerFactionId: "cao",
+      population: 350,
+      development: 42,
+      commerce: 45,
+      order: 61,
+      troops: 115,
+      training: 50,
+      x: 73,
+      y: 36,
+      image: "assets/cities/xia.png",
+      adjacentCityIds: ["xia", "bei", "chenliu"],
+    },
+    {
+      id: "hongnong",
+      name: "홍농",
+      ownerFactionId: "dong",
+      population: 340,
+      development: 46,
+      commerce: 42,
+      order: 50,
+      troops: 130,
+      training: 48,
+      x: 27,
+      y: 43,
+      image: "assets/cities/luoyang.png",
+      adjacentCityIds: ["changan", "luoyang", "hanzhong"],
+    },
+    {
+      id: "anding",
+      name: "안정",
+      ownerFactionId: "ma",
+      population: 260,
+      development: 36,
+      commerce: 30,
+      order: 59,
+      troops: 104,
+      training: 52,
+      x: 16,
+      y: 25,
+      image: "assets/cities/tianshui.png",
+      adjacentCityIds: ["tianshui", "changan", "wuwei", "xiliang"],
+    },
+    {
+      id: "wuwei",
+      name: "무위",
+      ownerFactionId: "ma",
+      population: 230,
+      development: 32,
+      commerce: 28,
+      order: 57,
+      troops: 96,
+      training: 50,
+      x: 5,
+      y: 12,
+      image: "assets/cities/tianshui.png",
+      adjacentCityIds: ["anding", "tianshui"],
+    },
+    {
+      id: "xiliang",
+      name: "서량",
+      ownerFactionId: "ma",
+      population: 250,
+      development: 34,
+      commerce: 27,
+      order: 61,
+      troops: 110,
+      training: 55,
+      x: 2,
+      y: 32,
+      image: "assets/cities/tianshui.png",
+      adjacentCityIds: ["tianshui", "anding"],
+    },
+    {
+      id: "xinye",
+      name: "신야",
+      ownerFactionId: "biao",
+      population: 330,
+      development: 43,
+      commerce: 41,
+      order: 66,
+      troops: 112,
+      training: 50,
+      x: 30,
+      y: 51,
+      image: "assets/cities/xiangyang.png",
+      adjacentCityIds: ["xiangyang", "luoyang", "shou", "runan"],
+    },
+    {
+      id: "jiangxia",
+      name: "강하",
+      ownerFactionId: "biao",
+      population: 380,
+      development: 47,
+      commerce: 46,
+      order: 68,
+      troops: 120,
+      training: 51,
+      x: 48,
+      y: 67,
+      image: "assets/cities/jing.png",
+      adjacentCityIds: ["shou", "xiangyang", "jing", "yuzhang", "changsha"],
+    },
+    {
+      id: "changsha",
+      name: "장사",
+      ownerFactionId: "biao",
+      population: 390,
+      development: 45,
+      commerce: 43,
+      order: 67,
+      troops: 116,
+      training: 49,
+      x: 38,
+      y: 78,
+      image: "assets/cities/wuling.png",
+      adjacentCityIds: ["wuling", "lingling", "guiyang", "jiangxia", "yuzhang"],
+    },
+    {
+      id: "guiyang",
+      name: "계양",
+      ownerFactionId: "biao",
+      population: 300,
+      development: 38,
+      commerce: 35,
+      order: 64,
+      troops: 92,
+      training: 44,
+      x: 35,
+      y: 91,
+      image: "assets/cities/lingling.png",
+      adjacentCityIds: ["changsha", "lingling", "cangwu"],
+    },
+    {
+      id: "yuzhang",
+      name: "예장",
+      ownerFactionId: "sun",
+      population: 410,
+      development: 48,
+      commerce: 56,
+      order: 70,
+      troops: 118,
+      training: 52,
+      x: 62,
+      y: 74,
+      image: "assets/cities/jianye.png",
+      adjacentCityIds: ["jianye", "jiangxia", "changsha", "luling"],
+    },
+    {
+      id: "luling",
+      name: "여릉",
+      ownerFactionId: "sun",
+      population: 320,
+      development: 41,
+      commerce: 45,
+      order: 68,
+      troops: 96,
+      training: 47,
+      x: 66,
+      y: 86,
+      image: "assets/cities/kuaiji.png",
+      adjacentCityIds: ["yuzhang", "kuaiji", "jiaozhi"],
+    },
+    {
+      id: "wujun",
+      name: "오군",
+      ownerFactionId: "sun",
+      population: 460,
+      development: 53,
+      commerce: 66,
+      order: 74,
+      troops: 128,
+      training: 54,
+      x: 84,
+      y: 69,
+      image: "assets/cities/kuaiji.png",
+      adjacentCityIds: ["jianye", "kuaiji"],
+    },
+    {
+      id: "cangwu",
+      name: "창오",
+      ownerFactionId: "shi",
+      population: 270,
+      development: 35,
+      commerce: 38,
+      order: 66,
+      troops: 82,
+      training: 41,
+      x: 48,
+      y: 96,
+      image: "assets/cities/jiaozhi.png",
+      adjacentCityIds: ["lingling", "guiyang", "jiaozhi", "nanhai"],
+    },
+    {
+      id: "nanhai",
+      name: "남해",
+      ownerFactionId: "shi",
+      population: 310,
+      development: 39,
+      commerce: 52,
+      order: 69,
+      troops: 88,
+      training: 43,
+      x: 58,
+      y: 98,
+      image: "assets/cities/jiaozhi.png",
+      adjacentCityIds: ["jiaozhi", "cangwu"],
+    },
+    {
+      id: "ba",
+      name: "파군",
+      ownerFactionId: "liu",
+      population: 360,
+      development: 44,
+      commerce: 37,
+      order: 68,
+      troops: 112,
+      training: 48,
+      x: 15,
+      y: 70,
+      image: "assets/cities/chengdu.png",
+      adjacentCityIds: ["chengdu", "hanzhong", "jing", "wuling"],
     },
   ],
   officers: [
@@ -282,19 +619,29 @@ const scenario = {
     { id: "huang-zhong", name: "황충", factionId: "biao", cityId: "wuling", leadership: 84, war: 93, intelligence: 66, politics: 52, charm: 74, loyalty: 88 },
     { id: "tai-shi-ci", name: "태사자", factionId: "sun", cityId: "kuaiji", leadership: 82, war: 92, intelligence: 67, politics: 55, charm: 80, loyalty: 91 },
     { id: "shi-xie", name: "사섭", factionId: "shi", cityId: "jiaozhi", leadership: 58, war: 42, intelligence: 80, politics: 86, charm: 84, loyalty: 100 },
+    { id: "xing-dao-rong", name: "형도영", factionId: "biao", cityId: "lingling", leadership: 59, war: 78, intelligence: 34, politics: 28, charm: 48, loyalty: 83 },
+    { id: "ju-shou", name: "저수", factionId: "yuan", cityId: "nanpi", leadership: 76, war: 45, intelligence: 91, politics: 88, charm: 72, loyalty: 90 },
+    { id: "tian-feng", name: "전풍", factionId: "yuan", cityId: "pingyuan", leadership: 72, war: 39, intelligence: 92, politics: 86, charm: 70, loyalty: 88 },
+    { id: "xun-yu", name: "순욱", factionId: "cao", cityId: "chenliu", leadership: 74, war: 32, intelligence: 96, politics: 98, charm: 89, loyalty: 94 },
+    { id: "cao-ren", name: "조인", factionId: "cao", cityId: "qiao", leadership: 88, war: 86, intelligence: 69, politics: 60, charm: 74, loyalty: 92 },
+    { id: "li-dian", name: "이전", factionId: "cao", cityId: "runan", leadership: 78, war: 77, intelligence: 72, politics: 66, charm: 71, loyalty: 88 },
+    { id: "zang-ba", name: "장패", factionId: "cao", cityId: "langye", leadership: 80, war: 82, intelligence: 64, politics: 55, charm: 68, loyalty: 82 },
+    { id: "li-jue", name: "이각", factionId: "dong", cityId: "hongnong", leadership: 70, war: 76, intelligence: 49, politics: 38, charm: 40, loyalty: 75 },
+    { id: "han-sui", name: "한수", factionId: "ma", cityId: "anding", leadership: 79, war: 73, intelligence: 78, politics: 70, charm: 68, loyalty: 78 },
+    { id: "pang-de", name: "방덕", factionId: "ma", cityId: "wuwei", leadership: 82, war: 92, intelligence: 61, politics: 42, charm: 72, loyalty: 86 },
+    { id: "ma-dai", name: "마대", factionId: "ma", cityId: "xiliang", leadership: 77, war: 84, intelligence: 60, politics: 48, charm: 70, loyalty: 88 },
+    { id: "wen-pin", name: "문빙", factionId: "biao", cityId: "xinye", leadership: 80, war: 78, intelligence: 70, politics: 66, charm: 72, loyalty: 86 },
+    { id: "huang-zu", name: "황조", factionId: "biao", cityId: "jiangxia", leadership: 68, war: 72, intelligence: 52, politics: 58, charm: 54, loyalty: 78 },
+    { id: "han-xuan", name: "한현", factionId: "biao", cityId: "changsha", leadership: 52, war: 42, intelligence: 50, politics: 60, charm: 45, loyalty: 76 },
+    { id: "zhao-fan", name: "조범", factionId: "biao", cityId: "guiyang", leadership: 50, war: 38, intelligence: 55, politics: 62, charm: 52, loyalty: 74 },
+    { id: "lu-meng", name: "여몽", factionId: "sun", cityId: "yuzhang", leadership: 90, war: 82, intelligence: 88, politics: 78, charm: 80, loyalty: 92 },
+    { id: "ling-tong", name: "능통", factionId: "sun", cityId: "luling", leadership: 78, war: 86, intelligence: 61, politics: 48, charm: 72, loyalty: 88 },
+    { id: "zhang-zhao", name: "장소", factionId: "sun", cityId: "wujun", leadership: 63, war: 24, intelligence: 88, politics: 95, charm: 82, loyalty: 90 },
+    { id: "shi-wu", name: "사무", factionId: "shi", cityId: "cangwu", leadership: 55, war: 48, intelligence: 66, politics: 72, charm: 68, loyalty: 86 },
+    { id: "shi-huang", name: "사황", factionId: "shi", cityId: "nanhai", leadership: 52, war: 44, intelligence: 64, politics: 70, charm: 66, loyalty: 84 },
+    { id: "yan-yan", name: "엄안", factionId: "liu", cityId: "ba", leadership: 78, war: 83, intelligence: 65, politics: 58, charm: 76, loyalty: 82 },
   ],
-  hiddenOfficers: [
-    { id: "sima-yi", name: "사마의", leadership: 94, war: 63, intelligence: 98, politics: 97, charm: 82, loyalty: 78 },
-    { id: "pang-tong", name: "방통", leadership: 88, war: 42, intelligence: 97, politics: 86, charm: 74, loyalty: 82 },
-    { id: "xu-shu", name: "서서", leadership: 82, war: 64, intelligence: 93, politics: 80, charm: 81, loyalty: 84 },
-    { id: "wei-yan", name: "위연", leadership: 84, war: 92, intelligence: 69, politics: 46, charm: 62, loyalty: 76 },
-    { id: "gan-ning", name: "감녕", leadership: 81, war: 94, intelligence: 68, politics: 43, charm: 75, loyalty: 74 },
-    { id: "lu-su", name: "노숙", leadership: 78, war: 46, intelligence: 91, politics: 93, charm: 88, loyalty: 86 },
-    { id: "fa-zheng", name: "법정", leadership: 80, war: 45, intelligence: 94, politics: 88, charm: 76, loyalty: 82 },
-    { id: "deng-ai", name: "등애", leadership: 91, war: 87, intelligence: 89, politics: 73, charm: 70, loyalty: 79 },
-    { id: "jiang-wei", name: "강유", leadership: 90, war: 89, intelligence: 90, politics: 76, charm: 83, loyalty: 85 },
-    { id: "zhang-liao", name: "장료", leadership: 93, war: 92, intelligence: 78, politics: 58, charm: 82, loyalty: 80 },
-  ],
+  hiddenOfficers: createHiddenOfficerPool(),
 };
 
 const commands = [
@@ -379,7 +726,13 @@ const commands = [
 ];
 
 let state = createInitialState();
+let autoProgressActive = false;
+let autoProgressTimer = null;
+let autoWarActive = false;
+let autoWarTimer = null;
 let mapOffset = { x: 0, y: 0 };
+let mapScale = 1;
+let battleAnimationTimer = null;
 let mapDrag = {
   active: false,
   pointerId: null,
@@ -404,8 +757,12 @@ const els = {
   rulerSummary: document.querySelector("#rulerSummary"),
   mapCanvas: document.querySelector("#mapCanvas"),
   mapViewport: document.querySelector("#mapViewport"),
+  mapZoomOutButton: document.querySelector("#mapZoomOutButton"),
+  mapZoomInButton: document.querySelector("#mapZoomInButton"),
+  mapZoomLabel: document.querySelector("#mapZoomLabel"),
   resetMapButton: document.querySelector("#resetMapButton"),
   cityLayer: document.querySelector("#cityLayer"),
+  battleLayer: document.querySelector("#battleLayer"),
   routeLines: document.querySelector("#routeLines"),
   cityName: document.querySelector("#cityName"),
   ownerBadge: document.querySelector("#ownerBadge"),
@@ -447,11 +804,19 @@ const els = {
   progressText: document.querySelector("#progressText"),
   eventLog: document.querySelector("#eventLog"),
   endTurnButton: document.querySelector("#endTurnButton"),
+  autoProgressButton: document.querySelector("#autoProgressButton"),
+  autoWarButton: document.querySelector("#autoWarButton"),
   saveSlot: document.querySelector("#saveSlot"),
   saveButton: document.querySelector("#saveButton"),
   loadButton: document.querySelector("#loadButton"),
   saveStatus: document.querySelector("#saveStatus"),
   newGameButton: document.querySelector("#newGameButton"),
+  victoryModal: document.querySelector("#victoryModal"),
+  victoryTitle: document.querySelector("#victoryTitle"),
+  victoryMessage: document.querySelector("#victoryMessage"),
+  victoryStats: document.querySelector("#victoryStats"),
+  victoryCloseButton: document.querySelector("#victoryCloseButton"),
+  victoryNewGameButton: document.querySelector("#victoryNewGameButton"),
 };
 
 function createInitialState() {
@@ -473,6 +838,8 @@ function createInitialState() {
     officers: withOfficerTroops(structuredClone(scenario.officers)),
     hiddenOfficers: structuredClone(scenario.hiddenOfficers),
     progress: createIdleProgress(),
+    battleAnimation: null,
+    victoryPopupDismissed: false,
     log: ["새 시나리오가 시작되었습니다. 플레이할 세력을 선택하세요."],
   };
 }
@@ -531,16 +898,45 @@ function normalizeState(nextState) {
       cityActionCounts[cityId] = 1;
     });
   }
+  const officers = withScenarioOfficers(Array.isArray(nextState.officers) ? nextState.officers : structuredClone(scenario.officers));
 
   return {
     ...nextState,
     actedCityIds: Array.isArray(nextState.actedCityIds) ? nextState.actedCityIds : [],
     cityActionCounts,
-    cities: withCityImages(Array.isArray(nextState.cities) ? nextState.cities : structuredClone(scenario.cities)),
-    officers: withOfficerTroops(Array.isArray(nextState.officers) ? nextState.officers : structuredClone(scenario.officers)),
-    hiddenOfficers: Array.isArray(nextState.hiddenOfficers) ? nextState.hiddenOfficers : structuredClone(scenario.hiddenOfficers),
+    cities: withScenarioCities(Array.isArray(nextState.cities) ? nextState.cities : structuredClone(scenario.cities)),
+    officers,
+    hiddenOfficers: withHiddenOfficerPool(Array.isArray(nextState.hiddenOfficers) ? nextState.hiddenOfficers : [], officers),
     progress: createIdleProgress(),
+    battleAnimation: null,
+    victoryPopupDismissed: Boolean(nextState.victoryPopupDismissed),
   };
+}
+
+function withScenarioCities(cities) {
+  const savedById = new Map(cities.map((city) => [city.id, city]));
+  const scenarioCityIds = new Set(scenario.cities.map((city) => city.id));
+  const mergedCities = scenario.cities.map((scenarioCity) => {
+    const savedCity = savedById.get(scenarioCity.id);
+    return {
+      ...scenarioCity,
+      ...(savedCity ?? {}),
+      image: savedCity?.image ?? scenarioCity.image ?? getDefaultCityImage(scenarioCity.id),
+      adjacentCityIds: [...scenarioCity.adjacentCityIds],
+    };
+  });
+  const customCities = cities.filter((city) => !scenarioCityIds.has(city.id));
+  return withCityImages([...mergedCities, ...customCities]);
+}
+
+function withScenarioOfficers(officers) {
+  const officerById = new Map(officers.map((officer) => [officer.id, officer]));
+  scenario.officers.forEach((scenarioOfficer) => {
+    if (!officerById.has(scenarioOfficer.id)) {
+      officerById.set(scenarioOfficer.id, structuredClone(scenarioOfficer));
+    }
+  });
+  return withOfficerTroops(Array.from(officerById.values()));
 }
 
 function withCityImages(cities) {
@@ -548,6 +944,17 @@ function withCityImages(cities) {
     ...city,
     image: city.image ?? getDefaultCityImage(city.id),
   }));
+}
+
+function withHiddenOfficerPool(hiddenOfficers, officers) {
+  const usedOfficerIds = new Set(officers.map((officer) => officer.id));
+  const hiddenById = new Map(hiddenOfficers.filter((officer) => !usedOfficerIds.has(officer.id)).map((officer) => [officer.id, officer]));
+  createHiddenOfficerPool().forEach((officer) => {
+    if (!usedOfficerIds.has(officer.id) && !hiddenById.has(officer.id)) {
+      hiddenById.set(officer.id, officer);
+    }
+  });
+  return Array.from(hiddenById.values());
 }
 
 function withOfficerTroops(officers) {
@@ -572,6 +979,8 @@ function render() {
   const owner = selectedCity ? getFaction(selectedCity.ownerFactionId) : null;
   const busy = isProcessing();
 
+  syncVictoryState(playerFaction);
+
   els.dateLabel.textContent = `${state.year}년 ${state.month}월`;
   els.factionLabel.textContent = playerFaction ? `플레이어: ${playerFaction.name}` : "세력 선택 중";
   els.fameLabel.textContent = playerFaction
@@ -581,6 +990,10 @@ function render() {
   els.setupPanel.classList.toggle("hidden", Boolean(playerFaction));
   renderSaveSlots();
   els.endTurnButton.disabled = !playerFaction || state.isGameOver || busy;
+  els.autoProgressButton.textContent = autoProgressActive ? "자동 중지" : "자동 진행";
+  els.autoProgressButton.disabled = (!playerFaction || state.isGameOver) && !autoProgressActive;
+  els.autoWarButton.textContent = autoWarActive ? "전쟁 중지" : "자동 전쟁";
+  els.autoWarButton.disabled = (!playerFaction || state.isGameOver) && !autoWarActive;
   els.saveButton.disabled = !playerFaction || busy;
   els.loadButton.disabled = !hasSavedGame() || busy;
   els.newGameButton.disabled = busy;
@@ -589,12 +1002,43 @@ function render() {
   renderRulerPanel(playerFaction);
   renderRoutes();
   renderCities();
+  renderBattleAnimation();
   applyMapOffset();
   renderCityPanel(selectedCity, owner);
   renderCommands(selectedCity);
   renderProgress();
   renderSaveStatus();
+  renderVictoryModal(playerFaction);
   renderLog();
+}
+
+function syncVictoryState(playerFaction) {
+  if (!playerFaction || state.isGameOver) return;
+  const ownsAllCities = state.cities.length > 0 && state.cities.every((city) => city.ownerFactionId === playerFaction.id);
+  if (!ownsAllCities) return;
+
+  state.isGameOver = true;
+  state.victoryPopupDismissed = false;
+  addLog(`${playerFaction.name} 세력이 천하를 통일했습니다. 승리입니다.`);
+}
+
+function renderVictoryModal(playerFaction) {
+  const ownsAllCities = Boolean(playerFaction) && state.cities.every((city) => city.ownerFactionId === playerFaction.id);
+  const shouldShow = Boolean(state.isGameOver && ownsAllCities && !state.victoryPopupDismissed);
+
+  els.victoryModal.classList.toggle("hidden", !shouldShow);
+  if (!shouldShow || !playerFaction) return;
+
+  const ruler = state.officers.find((officer) => officer.id === playerFaction.rulerId);
+  els.victoryTitle.textContent = `${playerFaction.name} 천하통일`;
+  els.victoryMessage.textContent = `${ruler?.name ?? playerFaction.name}의 깃발 아래 모든 도시가 하나가 되었습니다.`;
+  els.victoryStats.innerHTML = [
+    ["도시", state.cities.length],
+    ["장수", state.officers.filter((officer) => officer.factionId === playerFaction.id).length],
+    ["연월", `${state.year}년 ${state.month}월`],
+  ]
+    .map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`)
+    .join("");
 }
 
 function renderFactionChoices() {
@@ -671,7 +1115,9 @@ function renderCities() {
     const button = document.createElement("button");
     const isPlayerCity = playerFaction && city.ownerFactionId === playerFaction.id;
     const actionStatus = getCityActionStatus(city, playerFaction);
-    button.className = `city-node ${city.id === state.selectedCityId ? "selected" : ""} ${isPlayerCity ? "player-city" : "enemy-city"} ${actionStatus.className}`;
+    const battleClass =
+      state.battleAnimation?.fromCityId === city.id ? "battle-source" : state.battleAnimation?.toCityId === city.id ? "battle-target" : "";
+    button.className = `city-node ${city.id === state.selectedCityId ? "selected" : ""} ${isPlayerCity ? "player-city" : "enemy-city"} ${actionStatus.className} ${battleClass}`;
     button.type = "button";
     button.disabled = isProcessing();
     button.style.left = `calc(${city.x}% - 58px)`;
@@ -680,7 +1126,7 @@ function renderCities() {
     button.innerHTML = `
       <img class="city-node-image" src="${escapeAttribute(getCityImage(city))}" alt="" loading="lazy" />
       <span class="city-name">${city.name}</span>
-      <span class="city-meta">${faction.name}<br>병력 ${city.troops} / 훈련 ${city.training}</span>
+      <span class="city-meta">${faction.name}<br>장수 ${cityOfficers(city).length} / 병력 ${city.troops} / 훈련 ${city.training}</span>
       ${actionStatus.label ? `<span class="city-action-badge">${actionStatus.label}</span>` : ""}
     `;
     button.addEventListener("click", () => {
@@ -689,6 +1135,81 @@ function renderCities() {
     });
     els.cityLayer.append(button);
   });
+}
+
+function renderBattleAnimation() {
+  const battle = state.battleAnimation;
+  if (!battle?.active) {
+    els.battleLayer.innerHTML = "";
+    return;
+  }
+  const fromCity = getCity(battle.fromCityId);
+  const toCity = getCity(battle.toCityId);
+  if (!fromCity || !toCity) {
+    els.battleLayer.innerHTML = "";
+    return;
+  }
+  const angle = Math.atan2(toCity.y - fromCity.y, toCity.x - fromCity.x) * (180 / Math.PI);
+  const midpointX = (fromCity.x + toCity.x) / 2;
+  const midpointY = (fromCity.y + toCity.y) / 2;
+  const attackTroops = getBattleTroops(fromCity);
+  const defendTroops = getBattleTroops(toCity);
+  els.battleLayer.innerHTML = `
+    <div class="battle-haze" style="left:${midpointX}%; top:${midpointY}%;"></div>
+    <div class="battle-line" style="left:${fromCity.x}%; top:${fromCity.y}%; width:${getBattleLineLength(fromCity, toCity)}%; transform:rotate(${angle}deg);"></div>
+    <div class="battle-trail trail-one" style="--from-x:${fromCity.x}%; --from-y:${fromCity.y}%; --to-x:${toCity.x}%; --to-y:${toCity.y}%;"></div>
+    <div class="battle-trail trail-two" style="--from-x:${fromCity.x}%; --from-y:${fromCity.y}%; --to-x:${toCity.x}%; --to-y:${toCity.y}%;"></div>
+    <div class="battle-army attacking" style="--from-x:${fromCity.x}%; --from-y:${fromCity.y}%; --to-x:${toCity.x}%; --to-y:${toCity.y}%;">
+      <span>⚔</span>
+    </div>
+    <div class="battle-army defending" style="left:${toCity.x}%; top:${toCity.y}%;">방</div>
+    <div class="battle-slash slash-one" style="left:${toCity.x}%; top:${toCity.y}%;"></div>
+    <div class="battle-slash slash-two" style="left:${toCity.x}%; top:${toCity.y}%;"></div>
+    <div class="battle-spark spark-one" style="left:${toCity.x}%; top:${toCity.y}%;"></div>
+    <div class="battle-spark spark-two" style="left:${toCity.x}%; top:${toCity.y}%;"></div>
+    <div class="battle-spark spark-three" style="left:${toCity.x}%; top:${toCity.y}%;"></div>
+    <div class="battle-smoke smoke-one" style="left:${toCity.x}%; top:${toCity.y}%;"></div>
+    <div class="battle-smoke smoke-two" style="left:${toCity.x}%; top:${toCity.y}%;"></div>
+    <div class="battle-smoke smoke-three" style="left:${toCity.x}%; top:${toCity.y}%;"></div>
+    <div class="battle-impact" style="left:${toCity.x}%; top:${toCity.y}%;">격돌</div>
+    <div class="battle-banner" style="left:${(fromCity.x + toCity.x) / 2}%; top:${(fromCity.y + toCity.y) / 2}%;">
+      ${fromCity.name} → ${toCity.name}
+      <span>공격 ${attackTroops} vs 방어 ${defendTroops}</span>
+    </div>
+    <div class="battle-status-card" style="left:${midpointX}%; top:${midpointY}%;">
+      <strong>전투 중</strong>
+      <span>${fromCity.name} 병력 ${attackTroops}</span>
+      <span>${toCity.name} 병력 ${defendTroops}</span>
+    </div>
+  `;
+}
+
+function getBattleLineLength(fromCity, toCity) {
+  const dx = toCity.x - fromCity.x;
+  const dy = toCity.y - fromCity.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function startBattleAnimation(fromCity, toCity) {
+  state.battleAnimation = {
+    active: true,
+    fromCityId: fromCity.id,
+    toCityId: toCity.id,
+  };
+  if (battleAnimationTimer) {
+    window.clearTimeout(battleAnimationTimer);
+  }
+  battleAnimationTimer = window.setTimeout(clearBattleAnimation, PROGRESS_DURATION_MS + PROGRESS_CLEAR_MS + 250);
+}
+
+function clearBattleAnimation() {
+  if (battleAnimationTimer) {
+    window.clearTimeout(battleAnimationTimer);
+    battleAnimationTimer = null;
+  }
+  if (!state.battleAnimation?.active) return;
+  state.battleAnimation = null;
+  renderBattleAnimation();
 }
 
 function getCityActionStatus(city, playerFaction) {
@@ -709,28 +1230,70 @@ function getCityActionStatus(city, playerFaction) {
 function applyMapOffset() {
   const clampedOffset = clampMapOffset(mapOffset.x, mapOffset.y);
   mapOffset = clampedOffset;
-  els.mapViewport.style.transform = `translate3d(${Math.round(mapOffset.x)}px, ${Math.round(mapOffset.y)}px, 0)`;
+  els.mapViewport.style.transform = `translate3d(${Math.round(mapOffset.x)}px, ${Math.round(mapOffset.y)}px, 0) scale(${mapScale})`;
+  renderMapZoomControls();
 }
 
 function clampMapOffset(x, y) {
   const canvasRect = getElementRect(els.mapCanvas, 1000, 800);
-  const viewportRect = getElementRect(els.mapViewport, 1280, 1024);
-  const minX = Math.min(0, canvasRect.width - viewportRect.width);
-  const minY = Math.min(0, canvasRect.height - viewportRect.height);
+  const viewportSize = getMapViewportSize(canvasRect);
+  const centeredX = Math.round((canvasRect.width - viewportSize.width) / 2);
+  const centeredY = Math.round((canvasRect.height - viewportSize.height) / 2);
+  const minX = Math.min(0, canvasRect.width - viewportSize.width);
+  const minY = Math.min(0, canvasRect.height - viewportSize.height);
   return {
-    x: clamp(x, minX, 0),
-    y: clamp(y, minY, 0),
+    x: viewportSize.width <= canvasRect.width ? centeredX : clamp(x, minX, 0),
+    y: viewportSize.height <= canvasRect.height ? centeredY : clamp(y, minY, 0),
   };
 }
 
 function resetMapPosition() {
   const canvasRect = getElementRect(els.mapCanvas, 1000, 800);
-  const viewportRect = getElementRect(els.mapViewport, 1280, 1024);
+  const viewportSize = getMapViewportSize(canvasRect);
   mapOffset = {
-    x: Math.min(0, Math.round((canvasRect.width - viewportRect.width) / 2)),
-    y: Math.min(0, Math.round((canvasRect.height - viewportRect.height) / 2)),
+    x: Math.round((canvasRect.width - viewportSize.width) / 2),
+    y: Math.round((canvasRect.height - viewportSize.height) / 2),
   };
   applyMapOffset();
+}
+
+function getMapViewportSize(canvasRect = getElementRect(els.mapCanvas, 1000, 800)) {
+  return {
+    width: canvasRect.width * MAP_VIEWPORT_RATIO * mapScale,
+    height: canvasRect.height * MAP_VIEWPORT_RATIO * mapScale,
+  };
+}
+
+function changeMapZoom(direction) {
+  setMapZoom(mapScale + direction * MAP_ZOOM_STEP);
+}
+
+function setMapZoom(nextScale) {
+  const previousScale = mapScale;
+  const clampedScale = Math.round(clamp(nextScale, MAP_ZOOM_MIN, MAP_ZOOM_MAX) * 100) / 100;
+  if (clampedScale === previousScale) {
+    renderMapZoomControls();
+    return;
+  }
+
+  const canvasRect = getElementRect(els.mapCanvas, 1000, 800);
+  const centerX = canvasRect.width / 2;
+  const centerY = canvasRect.height / 2;
+  const focusX = (centerX - mapOffset.x) / previousScale;
+  const focusY = (centerY - mapOffset.y) / previousScale;
+
+  mapScale = clampedScale;
+  mapOffset = {
+    x: centerX - focusX * mapScale,
+    y: centerY - focusY * mapScale,
+  };
+  applyMapOffset();
+}
+
+function renderMapZoomControls() {
+  els.mapZoomLabel.textContent = `${Math.round(mapScale * 100)}%`;
+  els.mapZoomOutButton.disabled = mapScale <= MAP_ZOOM_MIN;
+  els.mapZoomInButton.disabled = mapScale >= MAP_ZOOM_MAX;
 }
 
 function getElementRect(element, fallbackWidth, fallbackHeight) {
@@ -812,6 +1375,7 @@ function getCityStatFields(city, faction) {
     { field: "food", label: "군량", value: faction.food, step: 10 },
     { field: "population", label: "인구", value: city.population, step: 1 },
     { field: "troops", label: "병력", value: city.troops, step: 10 },
+    { field: "officers", label: "장수", value: cityOfficers(city).length, readOnly: true },
     { field: "development", label: "개발", value: city.development, step: 1, max: 100 },
     { field: "commerce", label: "상업", value: city.commerce, step: 1, max: 100 },
     { field: "order", label: "치안", value: city.order, step: 1, max: 100 },
@@ -820,6 +1384,9 @@ function getCityStatFields(city, faction) {
 }
 
 function renderCityStatInput({ field, label, value, step, max }, disabled) {
+  if (field === "officers") {
+    return `<div class="stat"><span>${label}</span><strong>${value}</strong></div>`;
+  }
   const maxAttribute = Number.isFinite(max) ? `max="${max}"` : "";
   return `
     <label class="stat stat-edit">
@@ -1164,6 +1731,11 @@ function attackSelectedTarget() {
     render();
     return;
   }
+  runBattleProgress(fromCity, toCity);
+}
+
+function runBattleProgress(fromCity, toCity) {
+  startBattleAnimation(fromCity, toCity);
   runProgress({
     title: `${fromCity.name} 출진`,
     steps: [
@@ -1203,6 +1775,176 @@ function endTurn() {
   });
 }
 
+function toggleAutoProgress() {
+  if (autoProgressActive) {
+    stopAutoProgress("자동 진행을 중지했습니다.");
+    return;
+  }
+  const playerFaction = getPlayerFaction();
+  if (!playerFaction || state.isGameOver) return;
+  if (autoWarActive) {
+    stopAutoWar("자동 전쟁을 중지하고 자동 진행을 시작합니다.");
+  }
+  autoProgressActive = true;
+  addLog("자동 진행을 시작했습니다. 전투를 제외한 내정 명령을 자동으로 수행합니다.");
+  render();
+  scheduleAutoProgressStep(120);
+}
+
+function stopAutoProgress(message) {
+  autoProgressActive = false;
+  if (autoProgressTimer) {
+    window.clearTimeout(autoProgressTimer);
+    autoProgressTimer = null;
+  }
+  if (message) addLog(message);
+  render();
+}
+
+function scheduleAutoProgressStep(delay = AUTO_PROGRESS_DELAY_MS) {
+  if (!autoProgressActive) return;
+  if (autoProgressTimer) window.clearTimeout(autoProgressTimer);
+  autoProgressTimer = window.setTimeout(runAutoProgressStep, delay);
+}
+
+function runAutoProgressStep() {
+  autoProgressTimer = null;
+  if (!autoProgressActive) return;
+  const playerFaction = getPlayerFaction();
+  if (!playerFaction || state.isGameOver) {
+    stopAutoProgress();
+    return;
+  }
+  if (isProcessing()) {
+    scheduleAutoProgressStep();
+    return;
+  }
+
+  const nextCity = state.cities.find((city) => city.ownerFactionId === playerFaction.id && canCityAct(city.id));
+  if (!nextCity) {
+    endTurn();
+    return;
+  }
+
+  const command = getAutoProgressCommand(nextCity, playerFaction);
+  if (!command) {
+    markCityAction(nextCity.id);
+    addLog(`${nextCity.name}은 자동 진행할 내정 명령이 없어 명령 기회를 넘겼습니다.`);
+    render();
+    scheduleAutoProgressStep();
+    return;
+  }
+
+  state.selectedCityId = nextCity.id;
+  render();
+  executeCommand(command.id);
+}
+
+function getAutoProgressCommand(city, faction) {
+  const priorities = [
+    { id: "develop", canUse: () => city.development < 85 && canAfford(faction, 70, 0) },
+    { id: "commerce", canUse: () => city.commerce < 85 && canAfford(faction, 60, 0) },
+    { id: "order", canUse: () => city.order < 85 && canAfford(faction, 45, 0) },
+    { id: "train", canUse: () => city.training < 85 && canAfford(faction, 35, 45) },
+    { id: "recruit", canUse: () => city.population > 150 && canAfford(faction, 55, 90) },
+    { id: "search", canUse: () => true },
+  ];
+  const selected = priorities.find((item) => item.canUse());
+  return selected ? commands.find((command) => command.id === selected.id) : null;
+}
+
+function canAfford(faction, gold, food) {
+  return faction.gold >= gold && faction.food >= food;
+}
+
+function toggleAutoWar() {
+  if (autoWarActive) {
+    stopAutoWar("자동 전쟁을 중지했습니다.");
+    return;
+  }
+  const playerFaction = getPlayerFaction();
+  if (!playerFaction || state.isGameOver) return;
+  if (autoProgressActive) {
+    stopAutoProgress("자동 진행을 중지하고 자동 전쟁을 시작합니다.");
+  }
+  autoWarActive = true;
+  addLog("자동 전쟁을 시작했습니다. 인접 적 도시 중 가장 유리한 전투를 자동으로 선택합니다.");
+  render();
+  scheduleAutoWarStep(120);
+}
+
+function stopAutoWar(message) {
+  autoWarActive = false;
+  if (autoWarTimer) {
+    window.clearTimeout(autoWarTimer);
+    autoWarTimer = null;
+  }
+  if (message) addLog(message);
+  render();
+}
+
+function scheduleAutoWarStep(delay = AUTO_PROGRESS_DELAY_MS) {
+  if (!autoWarActive) return;
+  if (autoWarTimer) window.clearTimeout(autoWarTimer);
+  autoWarTimer = window.setTimeout(runAutoWarStep, delay);
+}
+
+function runAutoWarStep() {
+  autoWarTimer = null;
+  if (!autoWarActive) return;
+  const playerFaction = getPlayerFaction();
+  if (!playerFaction || state.isGameOver) {
+    stopAutoWar();
+    return;
+  }
+  if (isProcessing()) {
+    scheduleAutoWarStep();
+    return;
+  }
+
+  const hasActionCity = state.cities.some((city) => city.ownerFactionId === playerFaction.id && canCityAct(city.id));
+  if (!hasActionCity) {
+    endTurn();
+    return;
+  }
+
+  const plan = getAutoWarPlan(playerFaction);
+  if (!plan) {
+    stopAutoWar("자동 전쟁 대상이 없습니다. 인접한 적 도시가 없거나 명령 가능한 공격 도시가 없습니다.");
+    return;
+  }
+
+  state.selectedCityId = plan.fromCity.id;
+  render();
+  runBattleProgress(plan.fromCity, plan.toCity);
+}
+
+function getAutoWarPlan(playerFaction) {
+  const plans = [];
+  state.cities
+    .filter((city) => city.ownerFactionId === playerFaction.id && canCityAct(city.id))
+    .forEach((fromCity) => {
+      getAttackTargets(fromCity).forEach((toCity) => {
+        plans.push({
+          fromCity,
+          toCity,
+          score: getAutoWarScore(fromCity, toCity),
+        });
+      });
+    });
+  return plans.sort((a, b) => b.score - a.score)[0] ?? null;
+}
+
+function getAutoWarScore(fromCity, toCity) {
+  const attackTroops = getBattleTroops(fromCity);
+  const defendTroops = Math.max(1, getBattleTroops(toCity));
+  const attackOfficerPower = getBattleOfficerPower(fromCity, 120);
+  const defendOfficerPower = getBattleOfficerPower(toCity, 110);
+  const attackEstimate = attackTroops * (0.75 + fromCity.training / 100) * (attackOfficerPower / 150);
+  const defendEstimate = defendTroops * (0.85 + toCity.training / 100) * (toCity.order / 90) * (defendOfficerPower / 150);
+  return attackEstimate / Math.max(1, defendEstimate);
+}
+
 function runProgress({ title, steps, onComplete }) {
   const progressSteps = steps.length ? steps : ["명령을 준비합니다.", "명령을 실행합니다.", "결과를 보고합니다."];
   const stepDelay = Math.floor(PROGRESS_DURATION_MS / progressSteps.length);
@@ -1232,6 +1974,12 @@ function runProgress({ title, steps, onComplete }) {
       percent: 100,
     };
     render();
+    if (autoProgressActive) {
+      scheduleAutoProgressStep(PROGRESS_CLEAR_MS + AUTO_PROGRESS_DELAY_MS);
+    }
+    if (autoWarActive) {
+      scheduleAutoWarStep(PROGRESS_CLEAR_MS + AUTO_PROGRESS_DELAY_MS);
+    }
 
     window.setTimeout(() => {
       if (state.progress.active) return;
@@ -1359,6 +2107,7 @@ function checkGameOver() {
   }
   if (aliveFactionIds.size === 1 && aliveFactionIds.has(playerFaction.id)) {
     state.isGameOver = true;
+    state.victoryPopupDismissed = false;
     addLog(`${playerFaction.name} 세력이 천하를 통일했습니다. 승리입니다.`);
   }
 }
@@ -1996,6 +2745,12 @@ function readPositiveInteger(value, fallback) {
 
 function newGame() {
   if (isProcessing()) return;
+  if (autoProgressActive) {
+    stopAutoProgress();
+  }
+  if (autoWarActive) {
+    stopAutoWar();
+  }
   state = {
     year: scenario.year,
     month: scenario.month,
@@ -2009,17 +2764,22 @@ function newGame() {
     officers: withOfficerTroops(structuredClone(scenario.officers)),
     hiddenOfficers: structuredClone(scenario.hiddenOfficers),
     progress: createIdleProgress(),
+    battleAnimation: null,
     log: ["새 시나리오가 시작되었습니다. 플레이할 세력을 선택하세요."],
   };
   render();
 }
 
 els.endTurnButton.addEventListener("click", endTurn);
+els.autoProgressButton.addEventListener("click", toggleAutoProgress);
+els.autoWarButton.addEventListener("click", toggleAutoWar);
 els.attackButton.addEventListener("click", attackSelectedTarget);
 els.mapCanvas.addEventListener("pointerdown", startMapDrag);
 els.mapCanvas.addEventListener("pointermove", moveMapDrag);
 els.mapCanvas.addEventListener("pointerup", endMapDrag);
 els.mapCanvas.addEventListener("pointercancel", endMapDrag);
+els.mapZoomOutButton.addEventListener("click", () => changeMapZoom(-1));
+els.mapZoomInButton.addEventListener("click", () => changeMapZoom(1));
 els.resetMapButton.addEventListener("click", resetMapPosition);
 if (typeof window.addEventListener === "function") {
   window.addEventListener("resize", applyMapOffset);
@@ -2079,6 +2839,11 @@ els.recruitOfficer.addEventListener("change", () => {
 });
 els.recruitButton.addEventListener("click", recruitForeignOfficer);
 els.newGameButton.addEventListener("click", newGame);
+els.victoryCloseButton.addEventListener("click", () => {
+  state.victoryPopupDismissed = true;
+  render();
+});
+els.victoryNewGameButton.addEventListener("click", newGame);
 
 render();
 resetMapPosition();

@@ -18,6 +18,8 @@
           <span id="factionLabel">세력 선택 중</span>
           <span id="fameLabel">명성 -</span>
           <button id="newGameButton" class="ghost-button" type="button">새 게임</button>
+          <button id="autoProgressButton" class="ghost-button" type="button">자동 진행</button>
+          <button id="autoWarButton" class="ghost-button" type="button">자동 전쟁</button>
           <button id="endTurnButton" class="primary-button" type="button">턴 종료</button>
         </div>
       </header>
@@ -30,6 +32,11 @@
               <p>도시를 선택하고 인접 도시를 공격하세요.</p>
             </div>
             <div class="map-tools">
+              <div class="map-zoom-controls" aria-label="지도 확대 축소">
+                <button id="mapZoomOutButton" class="ghost-button" type="button" aria-label="지도 축소">-</button>
+                <span id="mapZoomLabel">100%</span>
+                <button id="mapZoomInButton" class="ghost-button" type="button" aria-label="지도 확대">+</button>
+              </div>
               <button id="resetMapButton" class="ghost-button" type="button">지도 중앙</button>
               <div id="objectiveLabel" class="objective">목표: 모든 도시 통일</div>
             </div>
@@ -39,6 +46,7 @@
               <svg class="route-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
                 <path id="routeLines" d="" />
               </svg>
+              <div id="battleLayer" class="battle-layer" aria-hidden="true"></div>
               <div id="cityLayer" class="city-layer"></div>
             </div>
           </div>
@@ -81,6 +89,30 @@
             </div>
             <div id="cityVisual" class="city-visual"></div>
             <div id="cityStats" class="stats-grid"></div>
+          </section>
+
+          <section class="command-panel">
+            <h2>명령</h2>
+            <div id="commandQuota" class="command-quota">세력을 선택하면 명령 가능 횟수가 표시됩니다.</div>
+            <div id="commandButtons" class="command-grid"></div>
+            <div class="attack-box">
+              <label for="attackTarget">공격 대상</label>
+              <select id="attackTarget"></select>
+              <button id="attackButton" class="danger-button" type="button">출진</button>
+            </div>
+            <div id="progressPanel" class="progress-panel" aria-live="polite">
+              <div class="progress-header">
+                <strong id="progressTitle">명령 대기</strong>
+                <span id="progressPercent">0%</span>
+              </div>
+              <div class="progress-track">
+                <div id="progressFill" class="progress-fill"></div>
+              </div>
+              <p id="progressText">명령을 선택하면 진행 상황이 표시됩니다.</p>
+            </div>
+          </section>
+
+          <section class="city-management-panel">
             <div class="resource-editor">
               <h3>도시 정보 직접 수정</h3>
               <div class="editor-grid">
@@ -176,26 +208,6 @@
             </div>
           </section>
 
-          <section class="command-panel">
-            <h2>명령</h2>
-            <div id="commandQuota" class="command-quota">세력을 선택하면 명령 가능 횟수가 표시됩니다.</div>
-            <div id="commandButtons" class="command-grid"></div>
-            <div class="attack-box">
-              <label for="attackTarget">공격 대상</label>
-              <select id="attackTarget"></select>
-              <button id="attackButton" class="danger-button" type="button">출진</button>
-            </div>
-            <div id="progressPanel" class="progress-panel" aria-live="polite">
-              <div class="progress-header">
-                <strong id="progressTitle">명령 대기</strong>
-                <span id="progressPercent">0%</span>
-              </div>
-              <div class="progress-track">
-                <div id="progressFill" class="progress-fill"></div>
-              </div>
-              <p id="progressText">명령을 선택하면 진행 상황이 표시됩니다.</p>
-            </div>
-          </section>
         </aside>
       </main>
 
@@ -211,6 +223,19 @@
         <p id="saveStatus" class="save-status">저장 데이터 없음</p>
         <ol id="eventLog"></ol>
       </section>
+
+      <div id="victoryModal" class="victory-modal hidden" role="dialog" aria-modal="true" aria-labelledby="victoryTitle">
+        <div class="victory-dialog">
+          <p class="victory-kicker">천하통일</p>
+          <h2 id="victoryTitle">승리</h2>
+          <p id="victoryMessage">모든 도시를 통일했습니다.</p>
+          <div id="victoryStats" class="victory-stats"></div>
+          <div class="victory-actions">
+            <button id="victoryCloseButton" class="ghost-button" type="button">기록 보기</button>
+            <button id="victoryNewGameButton" class="primary-button" type="button">새 게임</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="app.js"></script>
