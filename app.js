@@ -10,7 +10,8 @@ const RECRUIT_BASE_COST = 160;
 const MIN_CITY_COMMAND_LIMIT = 1;
 const MAX_CITY_COMMAND_LIMIT = 4;
 const CITY_IMAGE_BASE = "assets/cities";
-const MAP_VIEWPORT_RATIO = 1.28;
+const MAP_VIEWPORT_WIDTH_RATIO = 1.55;
+const MAP_VIEWPORT_HEIGHT_RATIO = 1.7;
 const MAP_ZOOM_MIN = 0.75;
 const MAP_ZOOM_MAX = 1.6;
 const MAP_ZOOM_STEP = 0.15;
@@ -809,6 +810,7 @@ const els = {
   endTurnButton: document.querySelector("#endTurnButton"),
   autoProgressButton: document.querySelector("#autoProgressButton"),
   autoWarButton: document.querySelector("#autoWarButton"),
+  storyButton: document.querySelector("#storyButton"),
   saveSlot: document.querySelector("#saveSlot"),
   saveButton: document.querySelector("#saveButton"),
   loadButton: document.querySelector("#loadButton"),
@@ -820,6 +822,8 @@ const els = {
   victoryStats: document.querySelector("#victoryStats"),
   victoryCloseButton: document.querySelector("#victoryCloseButton"),
   victoryNewGameButton: document.querySelector("#victoryNewGameButton"),
+  storyModal: document.querySelector("#storyModal"),
+  storyCloseButton: document.querySelector("#storyCloseButton"),
 };
 
 function createInitialState() {
@@ -1044,6 +1048,14 @@ function renderVictoryModal(playerFaction) {
     .join("");
 }
 
+function openStoryModal() {
+  els.storyModal.classList.remove("hidden");
+}
+
+function closeStoryModal() {
+  els.storyModal.classList.add("hidden");
+}
+
 function renderFactionChoices() {
   els.factionChoices.innerHTML = "";
   state.factions.forEach((faction) => {
@@ -1262,8 +1274,8 @@ function resetMapPosition() {
 
 function getMapViewportSize(canvasRect = getElementRect(els.mapCanvas, 1000, 800)) {
   return {
-    width: canvasRect.width * MAP_VIEWPORT_RATIO * mapScale,
-    height: canvasRect.height * MAP_VIEWPORT_RATIO * mapScale,
+    width: canvasRect.width * MAP_VIEWPORT_WIDTH_RATIO * mapScale,
+    height: canvasRect.height * MAP_VIEWPORT_HEIGHT_RATIO * mapScale,
   };
 }
 
@@ -2878,6 +2890,11 @@ els.recruitOfficer.addEventListener("change", () => {
   renderRecruitPanel(city, cityOfficers(city));
 });
 els.recruitButton.addEventListener("click", recruitForeignOfficer);
+els.storyButton.addEventListener("click", openStoryModal);
+els.storyCloseButton.addEventListener("click", closeStoryModal);
+els.storyModal.addEventListener("click", (event) => {
+  if (event.target === els.storyModal) closeStoryModal();
+});
 els.newGameButton.addEventListener("click", newGame);
 els.victoryCloseButton.addEventListener("click", () => {
   state.victoryPopupDismissed = true;
