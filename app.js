@@ -971,6 +971,7 @@ const els = {
   moveOfficer: document.querySelector("#moveOfficer"),
   moveTargetCity: document.querySelector("#moveTargetCity"),
   moveOfficerButton: document.querySelector("#moveOfficerButton"),
+  balanceOfficersButton: document.querySelector("#balanceOfficersButton"),
   scoutInfo: document.querySelector("#scoutInfo"),
   scoutButton: document.querySelector("#scoutButton"),
   recruitInfo: document.querySelector("#recruitInfo"),
@@ -1733,8 +1734,10 @@ function renderOfficerMovePanel(city, officers) {
   const playerFaction = getPlayerFaction();
   const previousOfficerId = els.moveOfficer.value;
   const previousTargetId = els.moveTargetCity.value;
+  const playerCities = playerFaction ? getFactionCities(playerFaction.id) : [];
+  const playerOfficers = playerFaction ? getFactionOfficers(playerFaction.id) : [];
   const targetCities = playerFaction
-    ? state.cities.filter((item) => item.ownerFactionId === playerFaction.id && item.id !== city.id)
+    ? playerCities.filter((item) => item.id !== city.id)
     : [];
   const canMove =
     playerFaction &&
@@ -1743,6 +1746,7 @@ function renderOfficerMovePanel(city, officers) {
     targetCities.length > 0 &&
     !state.isGameOver &&
     !isProcessing();
+  const canBalance = playerFaction && playerCities.length > 0 && playerOfficers.length > 0 && !state.isGameOver && !isProcessing();
 
   els.moveOfficer.innerHTML = officers.length
     ? officers.map((officer) => `<option value="${officer.id}">${officer.name} / 병 ${officer.troops ?? 0}</option>`).join("")
@@ -1762,10 +1766,12 @@ function renderOfficerMovePanel(city, officers) {
     playerFaction && city.ownerFactionId === playerFaction.id
       ? `이동 가능 도시 ${targetCities.length}곳`
       : "플레이어 도시에서만 이동할 수 있습니다.";
-  els.officerMoveInfo.textContent = `${ownerText} · 이동 시 담당 병력은 0으로 초기화됩니다.`;
+  const balanceText = playerFaction ? `전체 배치: 장수 ${playerOfficers.length}명 / 보유 성 ${playerCities.length}곳` : "";
+  els.officerMoveInfo.textContent = `${ownerText} · ${balanceText} · 이동 시 담당 병력은 0으로 초기화됩니다.`;
   els.moveOfficer.disabled = !canMove;
   els.moveTargetCity.disabled = !canMove;
   els.moveOfficerButton.disabled = !canMove;
+  els.balanceOfficersButton.disabled = !canBalance;
 }
 
 function renderScoutPanel(city, officers) {
@@ -2785,6 +2791,10 @@ function getFactionCities(factionId) {
   return state.cities.filter((city) => city.ownerFactionId === factionId);
 }
 
+function getFactionOfficers(factionId) {
+  return state.officers.filter((officer) => officer.factionId === factionId);
+}
+
 function addLog(message) {
   state.log.push(`${state.year}년 ${state.month}월: ${message}`);
 }
@@ -3074,6 +3084,27 @@ function moveOfficerToCity() {
   render();
 }
 
+function balanceOfficersAcrossCities() {
+  if (isProcessing()) return;
+  const playerFaction = getPlayerFaction();
+  if (!playerFaction || state.isGameOver) return;
+
+  const playerCities = getFactionCities(playerFaction.id);
+  const playerOfficers = getFactionOfficers(playerFaction.id);
+  if (!playerCities.length || !playerOfficers.length) return;
+
+  playerOfficers.forEach((officer, index) => {
+    const targetCity = playerCities[index % playerCities.length];
+    officer.cityId = targetCity.id;
+    officer.troops = 0;
+  });
+
+  playerCities.forEach(clampOfficerTroopsForCity);
+  const summary = playerCities.map((city) => `${city.name} ${cityOfficers(city).length}명`).join(", ");
+  addLog(`${playerFaction.name} 소속 장수 ${playerOfficers.length}명을 보유 성 ${playerCities.length}곳에 균등 배치했습니다. ${summary}`);
+  render();
+}
+
 function rewardOfficer() {
   if (isProcessing()) return;
   const city = getCity(state.selectedCityId);
@@ -3348,6 +3379,7 @@ els.toggleOfficerListButton.addEventListener("click", toggleOfficerList);
 els.assignTroopsButton.addEventListener("click", assignTroopsToOfficer);
 els.autoAssignTroopsButton.addEventListener("click", autoAssignTroops);
 els.moveOfficerButton.addEventListener("click", moveOfficerToCity);
+els.balanceOfficersButton.addEventListener("click", balanceOfficersAcrossCities);
 els.troopOfficer.addEventListener("change", () => {
   const officer = state.officers.find((item) => item.id === els.troopOfficer.value);
   els.troopAmount.value = officer ? officer.troops ?? 0 : 0;
