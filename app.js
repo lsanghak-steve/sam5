@@ -729,6 +729,8 @@ const commands = [
 let state = createInitialState();
 let autoProgressActive = false;
 let autoProgressTimer = null;
+let autoDomesticActive = false;
+let autoDomesticTimer = null;
 let autoTrainActive = false;
 let autoTrainTimer = null;
 let autoWarActive = false;
@@ -820,6 +822,7 @@ const els = {
   eventLog: document.querySelector("#eventLog"),
   endTurnButton: document.querySelector("#endTurnButton"),
   autoProgressButton: document.querySelector("#autoProgressButton"),
+  autoDomesticButton: document.querySelector("#autoDomesticButton"),
   autoTrainButton: document.querySelector("#autoTrainButton"),
   autoWarButton: document.querySelector("#autoWarButton"),
   storyButton: document.querySelector("#storyButton"),
@@ -1011,6 +1014,8 @@ function render() {
   els.endTurnButton.disabled = !playerFaction || state.isGameOver || busy;
   els.autoProgressButton.textContent = autoProgressActive ? "자동 중지" : "자동 진행";
   els.autoProgressButton.disabled = (!playerFaction || state.isGameOver) && !autoProgressActive;
+  els.autoDomesticButton.textContent = autoDomesticActive ? "내정 중지" : "자동 내정";
+  els.autoDomesticButton.disabled = (!playerFaction || state.isGameOver) && !autoDomesticActive;
   els.autoTrainButton.textContent = autoTrainActive ? "훈련 중지" : "자동 훈련";
   els.autoTrainButton.disabled = (!playerFaction || state.isGameOver) && !autoTrainActive;
   els.autoWarButton.textContent = autoWarActive ? "전쟁 중지" : "자동 전쟁";
@@ -1858,6 +1863,9 @@ function toggleAutoProgress() {
   if (autoTrainActive) {
     stopAutoTrain("자동 훈련을 중지하고 자동 진행을 시작합니다.");
   }
+  if (autoDomesticActive) {
+    stopAutoDomestic("자동 내정을 중지하고 자동 진행을 시작합니다.");
+  }
   autoProgressActive = true;
   addLog("자동 진행을 시작했습니다. 전투를 제외한 내정 명령을 자동으로 수행합니다.");
   render();
@@ -1930,6 +1938,102 @@ function canAfford(faction, gold, food) {
   return faction.gold >= gold && faction.food >= food;
 }
 
+function toggleAutoDomestic() {
+  if (autoDomesticActive) {
+    stopAutoDomestic("자동 내정을 중지했습니다.");
+    return;
+  }
+  const playerFaction = getPlayerFaction();
+  if (!playerFaction || state.isGameOver) return;
+  if (autoProgressActive) {
+    stopAutoProgress("자동 진행을 중지하고 자동 내정을 시작합니다.");
+  }
+  if (autoTrainActive) {
+    stopAutoTrain("자동 훈련을 중지하고 자동 내정을 시작합니다.");
+  }
+  if (autoWarActive) {
+    stopAutoWar("자동 전쟁을 중지하고 자동 내정을 시작합니다.");
+  }
+  autoDomesticActive = true;
+  addLog("자동 내정을 시작했습니다. 개발, 상업, 치안 명령만 자동으로 수행합니다.");
+  render();
+  scheduleAutoDomesticStep(120);
+}
+
+function stopAutoDomestic(message) {
+  autoDomesticActive = false;
+  if (autoDomesticTimer) {
+    window.clearTimeout(autoDomesticTimer);
+    autoDomesticTimer = null;
+  }
+  if (message) addLog(message);
+  render();
+}
+
+function scheduleAutoDomesticStep(delay = AUTO_PROGRESS_DELAY_MS) {
+  if (!autoDomesticActive) return;
+  if (autoDomesticTimer) window.clearTimeout(autoDomesticTimer);
+  autoDomesticTimer = window.setTimeout(runAutoDomesticStep, delay);
+}
+
+function runAutoDomesticStep() {
+  autoDomesticTimer = null;
+  if (!autoDomesticActive) return;
+  const playerFaction = getPlayerFaction();
+  if (!playerFaction || state.isGameOver) {
+    stopAutoDomestic();
+    return;
+  }
+  if (isProcessing()) {
+    scheduleAutoDomesticStep();
+    return;
+  }
+
+  const playerCities = getFactionCities(playerFaction.id);
+  const needsDomestic = playerCities.some((city) => city.development < 100 || city.commerce < 100 || city.order < 100);
+  if (!needsDomestic) {
+    stopAutoDomestic("모든 보유 성의 개발, 상업, 치안이 최대치입니다. 자동 내정을 중지했습니다.");
+    return;
+  }
+  if (!canUseAnyDomesticCommand(playerCities, playerFaction)) {
+    stopAutoDomestic("자동 내정에 필요한 자원이 부족합니다. 개발/상업/치안 명령을 수행할 수 없습니다.");
+    return;
+  }
+
+  const plan = getAutoDomesticPlan(playerCities, playerFaction);
+  if (!plan) {
+    endTurn();
+    return;
+  }
+
+  state.selectedCityId = plan.city.id;
+  render();
+  executeCommand(plan.command.id);
+}
+
+function getAutoDomesticPlan(cities, faction) {
+  return cities
+    .filter((city) => canCityAct(city.id))
+    .map((city) => ({ city, command: getAutoDomesticCommand(city, faction) }))
+    .find((plan) => plan.command) ?? null;
+}
+
+function getAutoDomesticCommand(city, faction) {
+  const candidates = [
+    { id: "develop", value: city.development, canUse: () => city.development < 100 && canAfford(faction, 70, 0) },
+    { id: "commerce", value: city.commerce, canUse: () => city.commerce < 100 && canAfford(faction, 60, 0) },
+    { id: "order", value: city.order, canUse: () => city.order < 100 && canAfford(faction, 45, 0) },
+  ]
+    .filter((item) => item.canUse())
+    .sort((a, b) => a.value - b.value);
+  const selected = candidates[0];
+  return selected ? commands.find((command) => command.id === selected.id) : null;
+}
+
+function canUseAnyDomesticCommand(cities, faction) {
+  return cities.some((city) => getAutoDomesticCommand(city, faction));
+}
+
 function toggleAutoTrain() {
   if (autoTrainActive) {
     stopAutoTrain("자동 훈련을 중지했습니다.");
@@ -1939,6 +2043,9 @@ function toggleAutoTrain() {
   if (!playerFaction || state.isGameOver) return;
   if (autoProgressActive) {
     stopAutoProgress("자동 진행을 중지하고 자동 훈련을 시작합니다.");
+  }
+  if (autoDomesticActive) {
+    stopAutoDomestic("자동 내정을 중지하고 자동 훈련을 시작합니다.");
   }
   if (autoWarActive) {
     stopAutoWar("자동 전쟁을 중지하고 자동 훈련을 시작합니다.");
@@ -2010,6 +2117,9 @@ function toggleAutoWar() {
   if (!playerFaction || state.isGameOver) return;
   if (autoProgressActive) {
     stopAutoProgress("자동 진행을 중지하고 자동 전쟁을 시작합니다.");
+  }
+  if (autoDomesticActive) {
+    stopAutoDomestic("자동 내정을 중지하고 자동 전쟁을 시작합니다.");
   }
   if (autoTrainActive) {
     stopAutoTrain("자동 훈련을 중지하고 자동 전쟁을 시작합니다.");
@@ -2123,6 +2233,9 @@ function runProgress({ title, steps, onComplete }) {
     render();
     if (autoProgressActive) {
       scheduleAutoProgressStep(PROGRESS_CLEAR_MS + AUTO_PROGRESS_DELAY_MS);
+    }
+    if (autoDomesticActive) {
+      scheduleAutoDomesticStep(PROGRESS_CLEAR_MS + AUTO_PROGRESS_DELAY_MS);
     }
     if (autoTrainActive) {
       scheduleAutoTrainStep(PROGRESS_CLEAR_MS + AUTO_PROGRESS_DELAY_MS);
@@ -2925,6 +3038,9 @@ function newGame() {
   if (autoProgressActive) {
     stopAutoProgress();
   }
+  if (autoDomesticActive) {
+    stopAutoDomestic();
+  }
   if (autoTrainActive) {
     stopAutoTrain();
   }
@@ -2952,6 +3068,7 @@ function newGame() {
 
 els.endTurnButton.addEventListener("click", endTurn);
 els.autoProgressButton.addEventListener("click", toggleAutoProgress);
+els.autoDomesticButton.addEventListener("click", toggleAutoDomestic);
 els.autoTrainButton.addEventListener("click", toggleAutoTrain);
 els.autoWarButton.addEventListener("click", toggleAutoWar);
 els.attackButton.addEventListener("click", attackSelectedTarget);
